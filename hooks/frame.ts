@@ -38,7 +38,8 @@ const fit = (s: Section, W: number) => {
   const n = s.rows[0]?.length ?? 0
   const w = Array.from({ length: n }, (_, c) => Math.max(...s.rows.map(r => (r[c] ? cellWidth(r[c]) : 2))))
   const slack = W - 2 - (n - 1) - w.reduce((a, b) => a + b, 0)
-  if (slack > 0 && w[s.flex] !== undefined) w[s.flex] += slack
+  const fw = w[s.flex]
+  if (slack > 0 && fw !== undefined) w[s.flex] = fw + slack
   return w
 }
 
