@@ -88,3 +88,33 @@ test('down arrow on the agents rows scrolls the 5-row window', async ($, on) => 
   expect(after).not.toContain('A0')
   expect(after).toContain('↑ 1')
 })
+
+// Background subagents raise no classic PostToolUse; each model request's turn.step carries the
+// agent's resolved effort (set or default), so that is where its row learns it.
+test("a subagent's turn.step puts its effort on its Agent Row", async ($, on) => {
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'a1' }))
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [] } as never
+  })
+  const ui = await setup($, on)
+  await $.agent.spawn({ tool_use_id: 't1', description: 'look around', subagentType: 'Explore' } as never)
+  const step = $.turn.step({ turnId: 'u1', index: 0, model: 'claude-sonnet-5-5', effort: 'medium', messageCount: 1, agentId: 'a1' } as never)
+  for await (const _ of step);
+  expect(await drawnAgents(ui)).toContain('sonnet 5.5 · medium')
+})
+
+// classic.PostToolUse and classic.Stop never reach the module; the main loop's own turn.step carries its effort.
+test("the main loop's turn.step sets the top row's effort", async ($, on) => {
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [] } as never
+  })
+  mock.clock(on)
+  on('ui.render', { component: 'PromptHint' }, ($t, e) => {
+    const { Text } = $t.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
+  const step = $.turn.step({ turnId: 'u1', index: 0, model: 'claude-opus-5-5', effort: 'xhigh', messageCount: 1 } as never)
+  for await (const _ of step);
+  expect(await drawn(ui)).toContain('· xhigh')
+})

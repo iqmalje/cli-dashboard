@@ -12,6 +12,7 @@ export type AgentRow = {
   readonly id: string
   readonly name: string
   readonly model: string
+  readonly effort?: string
   readonly description: string
   readonly startedAt: number
   readonly endedAt?: number

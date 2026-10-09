@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { AgentRow, Limit, Task, Usage } from '../types'
-import { agentTokens, onPrompt, scrollBy, setTokens, spawn, stop } from './agents'
+import { agentTokens, onPrompt, scrollBy, setEffort, setTokens, spawn, stop } from './agents'
 import { agentDirOf, cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
 import type { Drop, Line } from './frame'
@@ -70,11 +70,24 @@ async function refreshSessionName($: EngineInterface) {
   }
 }
 
+// classic.* hooks (SessionStart, PostToolUse) never reach this module on 2.1.295, so no event names
+// the transcript: find it by session id under any project folder.
+async function findAgentDir($: EngineInterface) {
+  const run = await $.process.run(['sh', '-c', 'ls -d "$0"/projects/*/"$1".jsonl', await read($, configDir), await $.session.id()])
+  const path = run.exitCode === 0 ? run.stdout.split('\n')[0] : undefined
+  if (!path) return ''
+  const dir = agentDirOf(path)
+  await update($, agentDir, () => dir)
+  return dir
+}
+
 // Live subagent tokens: re-read each running agent's transcript (a read over 4 MiB rejects; keep the last count).
 async function refreshAgentTokens($: EngineInterface) {
-  const dir = await read($, agentDir)
+  const rows = await read($, agents)
+  if (rows.length === 0) return
+  const dir = (await read($, agentDir)) || (await findAgentDir($))
   if (!dir) return
-  for (const r of await read($, agents)) {
+  for (const r of rows) {
     if (r.endedAt !== undefined && r.tokens !== undefined) continue
     try {
       // workflow agents sit one level deeper: subagents/workflows/<runId>/agent-<id>.jsonl (from YAS; unverified here)
@@ -152,7 +165,16 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // turn.step is a streaming event; effort rides on classic hook inputs instead
+  // effort rides on each model request's turn.step: classic.* hooks never reach this module
+  on('turn.step', async function* ($, e, next) {
+    const id = e.agentId
+    const level = e.effort === undefined ? undefined : String(e.effort)
+    if (level && id) await update($, agents, rows => setEffort(rows, id, level))
+    else if (level) await update($, effort, () => level)
+    return yield* next(e)
+  })
+
+  // the main loop's effort rides on classic hook inputs
   on('classic.PostToolUse', async ($, e, next) => {
     const level = e.agent_id ? undefined : e.effort?.level
     if (level) await update($, effort, () => level)

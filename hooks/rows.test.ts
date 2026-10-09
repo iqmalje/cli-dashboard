@@ -65,6 +65,18 @@ test('workflow agents go in their own section, labelled by run name', () => {
   expect(text(secs[1]!)).toContain('review-changes')
 })
 
+// Agent rows name the model as the top row does, with effort once the agent's first tool call reports it.
+test('agent rows show the short model name and effort', () => {
+  const rows: AgentRow[] = [
+    { id: 'a', name: 'Explore', model: 'claude-opus-5-5', effort: 'medium', description: 'look', startedAt: 0 },
+    { id: 'b', name: 'Plan', model: 'claude-haiku-5-5', description: 'plan', startedAt: 0 },
+  ]
+  const t = text(agentSections(rows, {}, 1000, 0, 0)[0]!)
+  expect(t).toContain('opus 5.5 · medium')
+  expect(t).toContain('haiku 5.5')
+  expect(t).not.toContain('claude-')
+})
+
 test('taskSection: collapsed shows one row with done/total and the active task', () => {
   const tasks: Task[] = [
     { id: '1', subject: 'A', status: 'completed' },

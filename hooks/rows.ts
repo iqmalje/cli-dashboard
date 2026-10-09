@@ -80,12 +80,14 @@ export function fixedRows(d: FixedData, drops: ReadonlySet<Drop>): Section[] {
   ]
 }
 
+const agentModel = (r: AgentRow) => fmtModel(r.model) + (r.effort ? ` · ${r.effort}` : '')
+
 const agentBody = (r: AgentRow, i: number, nameW: number, modelW: number, now: number, f: number): Cell => {
   const done = r.endedAt !== undefined
   const h = (i * 70 + f * 6) % 360
   return cell(
     { text: r.name.padEnd(nameW), color: done ? undefined : pastel(h), dim: done },
-    { text: r.model.padEnd(modelW), dim: true },
+    { text: agentModel(r).padEnd(modelW), dim: true },
     { text: r.description, dim: done },
     { text: ' ', grow: 1 },
     { text: (r.tokens === undefined ? '' : fmtTokens(r.tokens)).padStart(5), dim: true },
@@ -97,7 +99,7 @@ const agentBody = (r: AgentRow, i: number, nameW: number, modelW: number, now: n
 
 const group = (label: Cell, rows: readonly AgentRow[], tail: string | null, now: number, f: number): Section => {
   const nameW = Math.max(...rows.map(r => width(r.name))) + 2
-  const modelW = Math.max(...rows.map(r => width(r.model))) + 2
+  const modelW = Math.max(...rows.map(r => width(agentModel(r)))) + 2
   const body: Cell[][] = rows.map((r, i) => [i === 0 ? label : blank, agentBody(r, i, nameW, modelW, now, f)])
   if (tail) body.push([blank, cell({ text: tail, dim: true })])
   return { rows: body, flex: 1, press: 'agents' }

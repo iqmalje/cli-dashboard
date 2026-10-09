@@ -10,6 +10,9 @@ export const stop = (rows: readonly AgentRow[], id: string, now: number) =>
 export const setTokens = (rows: readonly AgentRow[], id: string, n: number) =>
   rows.map(r => (r.id === id ? { ...r, tokens: n } : r))
 
+export const setEffort = (rows: readonly AgentRow[], id: string, level: string) =>
+  rows.map(r => (r.id === id ? { ...r, effort: level } : r))
+
 type UsageLine = { type?: string; message?: { id?: string; usage?: Record<string, number | undefined> } }
 
 // Streaming rewrites a message id with growing usage, so the last line per id wins (as YAS reads it).

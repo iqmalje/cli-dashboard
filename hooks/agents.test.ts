@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { AgentRow } from '../types'
-import { agentTokens, onPrompt, scrollBy, setTokens, spawn, stop, visible } from './agents'
+import { agentTokens, onPrompt, scrollBy, setEffort, setTokens, spawn, stop, visible } from './agents'
 
 const row = (id: string, endedAt?: number): AgentRow => ({ id, name: id, model: 'sonnet', description: 'd', startedAt: 0, ...(endedAt === undefined ? {} : { endedAt }) })
 
@@ -16,6 +16,12 @@ test('stop keeps the first endedAt; setTokens replaces the count', () => {
   const rows = stop(stop([row('a')], 'a', 10), 'a', 20)
   expect(rows[0]?.endedAt).toBe(10)
   expect(setTokens(setTokens(rows, 'a', 5), 'a', 7)[0]?.tokens).toBe(7)
+})
+
+// Effort only reaches the mod on the agent's own tool calls; it lands on that agent's row alone.
+test('setEffort sets the level on the matching agent only', () => {
+  const rows = setEffort([row('a'), row('b')], 'b', 'high')
+  expect(rows.map(r => r.effort)).toEqual([undefined, 'high'])
 })
 
 // Streaming rewrites one message id with growing usage: counting every line would double-count it,
