@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { cacheLeft, CACHE_TTL_MS, effortFromSettings, fmtDuration, fmtModel, fmtTokens, parseGit, shortDir, shortenHome } from './format'
+import { agentDirOf, cacheLeft, CACHE_TTL_MS, effortFromSettings, fmtDuration, fmtModel, fmtTokens, parseGit, shortDir, shortenHome } from './format'
 
 test('fmtTokens: plain under 1k, k under 1M, one-decimal M above', () => {
   expect(fmtTokens(950)).toBe('950')
@@ -61,4 +61,9 @@ test('effortFromSettings: per-model level, else the global one, else null', () =
   expect(effortFromSettings(s, 'claude-opus-5-5[1m]')).toBe('medium')
   expect(effortFromSettings(s, 'claude-sonnet-5')).toBe('high')
   expect(effortFromSettings({}, 'claude-sonnet-5')).toBe(null)
+})
+
+// Subagent transcripts sit beside the session's: live agent token counts are read from there.
+test('agentDirOf: the session transcript minus .jsonl, plus /subagents', () => {
+  expect(agentDirOf('/p/projects/x/abc.jsonl')).toBe('/p/projects/x/abc/subagents')
 })

@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { AgentRow, Limit, Task, Usage } from '../types'
 import { agentTokens, onPrompt, setTokens, spawn, stop } from './agents'
-import { cacheLeft, effortFromSettings, parseGit } from './format'
+import { agentDirOf, cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
 import type { Drop, Line } from './frame'
 import { agentSections, fixedRows, ICON, sessionNameFrom, skillsSection, taskSection } from './rows'
@@ -144,6 +144,8 @@ export const register: Register = on => {
   on('classic.PostToolUse', async ($, e, next) => {
     const level = e.agent_id ? undefined : e.effort?.level
     if (level) await update($, effort, () => level)
+    // a hot-reloaded cockpit never saw SessionStart; any main-loop tool call tells it where transcripts live
+    if (!e.agent_id) await update($, agentDir, d => d || agentDirOf(e.transcript_path))
     return next(e)
   })
 
@@ -238,7 +240,7 @@ export const register: Register = on => {
   // session.start never fires on /clear or an in-process resume; the classic event does
   on('classic.SessionStart', async ($, e, next) => {
     const r = await next(e)
-    const dir = `${e.transcript_path.replace(/\.jsonl$/, '')}/subagents`
+    const dir = agentDirOf(e.transcript_path)
     await update($, agentDir, () => dir)
     try {
       const res = await $.tool.call({ tool: 'TaskList' })

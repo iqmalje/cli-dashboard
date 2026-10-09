@@ -112,7 +112,7 @@ export function agentSections(rows: readonly AgentRow[], runs: Readonly<Record<s
   const plain = v.shown.filter(r => r.runId === undefined)
   const sections: Section[] = []
   if (plain.length > 0) {
-    const running = plain.filter(r => r.endedAt === undefined).length
+    const running = rows.filter(r => r.runId === undefined && r.endedAt === undefined).length
     sections.push(group(cell(ic(ICON.agents, 330), { text: 'agents ' }, { text: String(running), bold: true }), plain, null, now, f))
   }
   for (const runId of [...new Set(v.shown.flatMap(r => (r.runId === undefined ? [] : [r.runId])))]) {

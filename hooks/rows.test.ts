@@ -120,3 +120,9 @@ test('the meter shows tokens alone while the window is unknown', () => {
   expect(text(r2!)).toContain('· 5k')
   expect(text(r2!)).not.toContain('5k/')
 })
+
+// The label is the running count, not the rows that fit: 10 running agents with 5 shown read "agents 10".
+test('the agents label counts every running agent, not only the rows shown', () => {
+  const rows: AgentRow[] = Array.from({ length: 7 }, (_, i) => ({ id: String(i), name: 'Explore', model: 'haiku', description: 'd', startedAt: 0 }))
+  expect(text(agentSections(rows, {}, 1000, 0)[0]!)).toContain('agents 7')
+})

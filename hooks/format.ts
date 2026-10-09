@@ -37,6 +37,9 @@ export const shortDir = (path: string) => {
   return parts.length > 3 ? `…/${parts.slice(-2).join('/')}` : path
 }
 
+// Subagent transcripts live beside the session's: <session>.jsonl -> <session>/subagents
+export const agentDirOf = (transcriptPath: string) => `${transcriptPath.replace(/\.jsonl$/, '')}/subagents`
+
 // `git status --porcelain=v1 --branch`: the first line names the branch, each other line is one changed file.
 export const parseGit = (exitCode: number, stdout: string): Git | null => {
   if (exitCode !== 0) return null
