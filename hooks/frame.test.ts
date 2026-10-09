@@ -53,6 +53,13 @@ test('planDrops drops in order until it fits', () => {
   expect([...planDrops(need, 10)]).toEqual(['dirShort', 'sevenDay', 'sessionName', 'dirty', 'cache'])
 })
 
+// A long session name forces sessionName out; the room it frees must bring 7d back.
+test('planDrops restores an earlier drop once a later one frees the room', () => {
+  const widths: Record<string, number> = { dirShort: 8, sevenDay: 10, sessionName: 40 }
+  const need = (drops: ReadonlySet<string>) => 150 - [...drops].reduce((n, d) => n + (widths[d] ?? 0), 0)
+  expect([...planDrops(need, 105)]).toEqual(['dirShort', 'sessionName'])
+})
+
 test('rowWidth counts each cell, its dividers and both borders', () => {
   expect(rowWidth([cell('ab'), cell('c')])).toBe(1 + 4 + 1 + 3 + 1)
 })

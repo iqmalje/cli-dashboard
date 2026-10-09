@@ -31,7 +31,12 @@ export const planDrops = (need: (drops: ReadonlySet<Drop>) => number, avail: num
     if (need(drops) <= avail) break
     drops.add(d)
   }
-  return drops
+  // a later drop may free more room than an earlier one needed: take back what still fits
+  for (const d of [...drops].reverse()) {
+    drops.delete(d)
+    if (need(drops) > avail) drops.add(d)
+  }
+  return new Set(DROP_ORDER.filter(d => drops.has(d)))
 }
 
 // Column widths for a section: the widest row per column; the slack goes to the flex column.
