@@ -130,7 +130,7 @@ The main loop's spinner line (the `Spinner` render site) shows what Claude is do
 
 - A `ui.render` hook on `{ component: 'Spinner' }` rewrites `props.word`. The engine still
   draws elapsed time, tokens and effort.
-- When `props.message` is set (a retry, a permission wait; it is `undefined`, not `null`, when absent), the hook passes the event
+- When `props.message` is set (a retry, a permission wait; treat any falsy value as absent), the hook passes the event
   through unchanged.
 - Text comes from the in-flight main-loop tool calls (calls with an `agentId` are ignored).
   The most recently started call that is still running supplies the text. When no call is
