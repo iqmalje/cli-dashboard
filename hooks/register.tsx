@@ -27,6 +27,7 @@ const tasksOpen = atom({ plugin: 'cockpit', key: 'tasksOpen' } as const, false)
 const agents = atom({ plugin: 'cockpit', key: 'agents' } as const, [] as readonly AgentRow[])
 const agentScroll = atom({ plugin: 'cockpit', key: 'agentScroll' } as const, 0)
 const agentDir = atom({ plugin: 'cockpit', key: 'agentDir' } as const, '')
+const sessionId = atom({ plugin: 'cockpit', key: 'sessionId' } as const, '')
 const runs = atom({ plugin: 'cockpit', key: 'runs' } as const, {} as Readonly<Record<string, string>>)
 const skills = atom({ plugin: 'cockpit', key: 'skills' } as const, [] as readonly string[])
 const plugins = atom({ plugin: 'cockpit', key: 'plugins' } as const, [] as readonly string[])
@@ -81,6 +82,29 @@ async function findAgentDir($: EngineInterface) {
   return dir
 }
 
+// A new session id (startup, /clear, resume) seeds the tasks and drops the old session's agents and tokens;
+// classic.SessionStart, which did this, never reaches the module.
+async function syncSession($: EngineInterface) {
+  const id = await $.session.id()
+  const was = await read($, sessionId)
+  if (id === was) return
+  await update($, sessionId, () => id)
+  await update($, agentDir, () => '')
+  if (was) {
+    await update($, sessionTokens, () => 0)
+    await update($, agents, () => [])
+  }
+  try {
+    const res = await $.tool.call({ tool: 'TaskList' })
+    if ('result' in res && res.result !== undefined && !res.isError) {
+      const seeded = res.result.tasks.map(t => ({ id: t.id, subject: t.subject, status: t.status }))
+      await update($, tasks, () => seeded)
+    }
+  } catch {
+    // keep the current list until the next task call
+  }
+}
+
 // Live subagent tokens: re-read each running agent's transcript (a read over 4 MiB rejects; keep the last count).
 async function refreshAgentTokens($: EngineInterface) {
   const rows = await read($, agents)
@@ -119,6 +143,7 @@ async function refreshSession($: EngineInterface) {
   if (seed) await update($, effort, v => v ?? seed)
   await refreshGit($)
   await refreshSessionName($)
+  await syncSession($)
 }
 
 export const register: Register = on => {
@@ -165,34 +190,18 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // effort rides on each model request's turn.step: classic.* hooks never reach this module
+  // model and effort ride on each model request's turn.step: classic.* hooks never reach this module
   on('turn.step', async function* ($, e, next) {
     const id = e.agentId
     const level = e.effort === undefined ? undefined : String(e.effort)
-    if (level && id) await update($, agents, rows => setEffort(rows, id, level))
-    else if (level) await update($, effort, () => level)
+    if (id) {
+      if (level) await update($, agents, rows => setEffort(rows, id, level))
+    } else {
+      await syncSession($).catch(() => {})
+      await update($, model, () => e.model)
+      if (level) await update($, effort, () => level)
+    }
     return yield* next(e)
-  })
-
-  // the main loop's effort rides on classic hook inputs
-  on('classic.PostToolUse', async ($, e, next) => {
-    const level = e.agent_id ? undefined : e.effort?.level
-    if (level) await update($, effort, () => level)
-    // a hot-reloaded cockpit never saw SessionStart; any main-loop tool call tells it where transcripts live
-    if (!e.agent_id) await update($, agentDir, d => d || agentDirOf(e.transcript_path))
-    return next(e)
-  })
-
-  // a turn with no tool call still ends with Stop, which carries the effort too
-  on('classic.Stop', async ($, e, next) => {
-    const level = e.effort?.level
-    if (level) await update($, effort, () => level)
-    return next(e)
-  })
-
-  on('classic.PostModelSwitch', async ($, e, next) => {
-    await update($, model, () => e.to_model)
-    return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -206,14 +215,10 @@ export const register: Register = on => {
       await update($, agents, rows => stop(rows, id, now))
     } else {
       await update($, lastResponseAt, () => now)
+      const dir = await $.session.cwd().catch(() => '')
+      if (dir) await update($, cwd, () => dir)
       await refreshGit($)
     }
-    return next(e)
-  })
-
-  on('classic.CwdChanged', async ($, e, next) => {
-    await update($, cwd, () => e.new_cwd)
-    await refreshGit($)
     return next(e)
   })
 
@@ -233,13 +238,6 @@ export const register: Register = on => {
     }
     await update($, agents, rows => spawn(rows, row))
     return r
-  })
-
-  on('classic.SubagentStop', async ($, e, next) => {
-    const now = await $.clock.now()
-    await update($, agents, rows => stop(rows, e.agent_id, now))
-    await refreshAgentTokens($)
-    return next(e)
   })
 
   on('tool.call', { tool: ['TaskCreate', 'TaskUpdate', 'TodoWrite'] }, async ($, e, next) => {
@@ -268,27 +266,6 @@ export const register: Register = on => {
     const r = await next(e)
     const name = String((e as unknown as { skill?: unknown }).skill ?? '')
     if (name) await update($, skills, list => (list.includes(name) ? list : [...list, name]))
-    return r
-  })
-
-  // session.start never fires on /clear or an in-process resume; the classic event does
-  on('classic.SessionStart', async ($, e, next) => {
-    const r = await next(e)
-    const dir = agentDirOf(e.transcript_path)
-    await update($, agentDir, () => dir)
-    try {
-      const res = await $.tool.call({ tool: 'TaskList' })
-      if ('result' in res && res.result !== undefined && !res.isError) {
-        const seeded = res.result.tasks.map(t => ({ id: t.id, subject: t.subject, status: t.status }))
-        await update($, tasks, () => seeded)
-      }
-    } catch {
-      // keep the current list until the next task call
-    }
-    if (e.source === 'clear') {
-      await update($, sessionTokens, () => 0)
-      await update($, agents, () => [])
-    }
     return r
   })
 

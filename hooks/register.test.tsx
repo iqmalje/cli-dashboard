@@ -118,3 +118,52 @@ test("the main loop's turn.step sets the top row's effort", async ($, on) => {
   for await (const _ of step);
   expect(await drawn(ui)).toContain('· xhigh')
 })
+
+// classic.PostModelSwitch, CwdChanged and SessionStart never reach the module (Claude Code 2.1.295):
+// the main loop's turn.step and turn.complete stand in for them.
+const wide = async ($: Engine, on: On) => {
+  mock.clock(on)
+  on('turn.step', async function* (_, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [] } as never
+  })
+  on('ui.render', { component: 'PromptHint' }, ($t, e) => {
+    const { Text } = $t.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  return $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
+}
+const mainStep = async ($: Engine, model = 'claude-opus-5-5') => {
+  for await (const _ of $.turn.step({ turnId: 'u1', index: 0, model, messageCount: 1 } as never));
+}
+
+test("a model switch shows on the main loop's next turn.step", async ($, on) => {
+  const ui = await wide($, on)
+  await mainStep($, 'claude-sonnet-5-5')
+  expect(await drawn(ui)).toContain('sonnet 5.5')
+})
+
+test('a cwd change shows once the main turn completes', async ($, on) => {
+  let dir = '/work/one'
+  on('session.cwd', () => ({ value: dir }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+  const ui = await wide($, on)
+  dir = '/work/two'
+  await $.turn.complete({ reason: 'answer', answer: '', durationMs: 1, isAborted: false, turnId: 'u1' } as never)
+  expect(await drawn(ui)).toContain('/work/two')
+})
+
+// A new session id (startup, /clear, resume) seeds tasks from TaskList and drops the old session's agents.
+test('a new session id seeds tasks and clears the old agents', async ($, on) => {
+  let id = 's1'
+  on('session.id', () => ({ value: id }))
+  on('tool.call', { tool: 'TaskList' }, () => ({ result: { tasks: [{ id: '1', subject: 'Seeded task', status: 'pending' }] } }) as never)
+  on('agent.spawn', () => ({ model: 'haiku', agentId: 'a1' }))
+  const ui = await wide($, on)
+  await mainStep($)
+  expect(await drawn(ui)).toContain('0/1')
+  await $.agent.spawn({ tool_use_id: 't1', description: 'look', subagentType: 'Explore' } as never)
+  expect(await drawnAgents(ui)).toContain('agents 1')
+  id = 's2'
+  await mainStep($)
+  expect(await drawn(ui)).not.toContain('agents')
+})

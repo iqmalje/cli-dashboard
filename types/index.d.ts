@@ -50,6 +50,7 @@ declare module 'claude-code' {
       agents: readonly AgentRow[]
       agentScroll: number
       agentDir: string
+      sessionId: string
       runs: Readonly<Record<string, string>>
       skills: readonly string[]
       plugins: readonly string[]
