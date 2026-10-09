@@ -52,3 +52,17 @@ test('a subagent turn completing marks its Agent Row done', async ($, on) => {
   await $.turn.complete({ agentId: 'a1', reason: 'answer', answer: 'done', durationMs: 1, isAborted: false, turnId: 'u1' } as never)
   expect(await drawn(ui)).toContain('agents 0')
 })
+
+// The hint line under the prompt is 4 columns narrower than the terminal (the footer's padding):
+// a Panel drawn at full width is cut there, losing its right border and last cell.
+test('the Panel is drawn 4 columns narrower than the terminal', async ($, on) => {
+  mock.clock(on)
+  on('ui.render', { component: 'PromptHint' }, ($t, e) => {
+    const { Text } = $t.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 100, rows: 40 } as never })
+  const out = await drawn(ui)
+  const top = out.slice(out.indexOf('╭'), out.indexOf('╮') + 1)
+  expect([...top].length).toBe(96)
+})

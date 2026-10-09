@@ -31,6 +31,8 @@ const skills = atom({ plugin: 'cockpit', key: 'skills' } as const, [] as readonl
 const plugins = atom({ plugin: 'cockpit', key: 'plugins' } as const, [] as readonly string[])
 const showSkills = atom({ plugin: 'cockpit', key: 'showSkills' } as const, false)
 
+const HINT_MARGIN = 4
+
 type Measure = { context: { tokens?: number; window: number }; rateLimits: readonly { kind: string; percentUsed: number; resetsAt?: string }[] }
 
 const toLimit = (l: Measure['rateLimits'][number] | undefined): Limit | undefined =>
@@ -261,7 +263,8 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const f = await read($, frame)
     const now = await $.clock.now()
-    const W = e.viewport?.columns ?? 80
+    // ponytail: the hint line is 4 columns narrower than the terminal (measured live); a Client region reports its real width if this drifts
+    const W = (e.viewport?.columns ?? 80) - HINT_MARGIN
 
     const data: FixedData = {
       now,
