@@ -22,6 +22,6 @@ export const pastel = (h: number) => oklch(0.85, 0.07, h)
 
 // Where cell k of n sits on the moving gradient at frame f: a triangle wave, 0..1..0.
 export const flow = (k: number, n: number, f: number) => {
-  const t = (((k / Math.max(1, n) - f * 0.25) % 1) + 1) % 1
+  const t = (((k / Math.max(1, n) - f * 0.125) % 1) + 1) % 1
   return 1 - Math.abs(2 * t - 1)
 }
