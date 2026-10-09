@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { AgentRow, Limit, Task, Usage } from '../types'
-import { agentTokens, onPrompt, setTokens, spawn, stop } from './agents'
+import { agentTokens, onPrompt, scrollBy, setTokens, spawn, stop } from './agents'
 import { agentDirOf, cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
 import type { Drop, Line } from './frame'
@@ -25,6 +25,7 @@ const lastResponseAt = atom({ plugin: 'cockpit', key: 'lastResponseAt' } as cons
 const tasks = atom({ plugin: 'cockpit', key: 'tasks' } as const, [] as readonly Task[])
 const tasksOpen = atom({ plugin: 'cockpit', key: 'tasksOpen' } as const, false)
 const agents = atom({ plugin: 'cockpit', key: 'agents' } as const, [] as readonly AgentRow[])
+const agentScroll = atom({ plugin: 'cockpit', key: 'agentScroll' } as const, 0)
 const agentDir = atom({ plugin: 'cockpit', key: 'agentDir' } as const, '')
 const runs = atom({ plugin: 'cockpit', key: 'runs' } as const, {} as Readonly<Record<string, string>>)
 const skills = atom({ plugin: 'cockpit', key: 'skills' } as const, [] as readonly string[])
@@ -123,6 +124,16 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // ↑/↓ from the focused agents rows (scroll.tsx)
+  on('ui.message', async ($, e, next) => {
+    const by = (e.data as { by?: unknown } | null)?.by
+    if (e.element === 'agents' && typeof by === 'number') {
+      const n = (await read($, agents)).length
+      await update($, agentScroll, o => scrollBy(o, by, n))
+    }
+    return next(e)
+  })
+
   on('command.run', { command: 'cockpit-skills' }, async $ => {
     await update($, showSkills, v => !v)
     return { text: 'Toggled the cockpit skills/plugins row.' }
@@ -136,6 +147,7 @@ export const register: Register = on => {
   // Agent Rows live until the next user prompt
   on('prompt.submit', async ($, e, next) => {
     await update($, agents, rows => onPrompt(rows))
+    await update($, agentScroll, () => 0)
     await refreshSessionName($)
     return next(e)
   })
@@ -262,7 +274,9 @@ export const register: Register = on => {
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     // the engine's hint line and other plugins draw first; never replace them
     const below = await next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const elements = $.ui.resolve(e)
+    const { Box, Text, Button } = elements
+    const Client = 'Client' in elements ? elements.Client : undefined
     const f = await read($, frame)
     const now = await $.clock.now()
     // ponytail: the hint line is 4 columns narrower than the terminal (measured live); a Client region reports its real width if this drifts
@@ -288,7 +302,7 @@ export const register: Register = on => {
     const skillList = await read($, skills)
     const sections = [
       ...fixedRows(data, drops),
-      ...agentSections(await read($, agents), await read($, runs), now, f),
+      ...agentSections(await read($, agents), await read($, runs), now, f, await read($, agentScroll)),
       ...(tasksSec ? [tasksSec] : []),
       ...((await read($, showSkills)) ? [skillsSection(skillList, await read($, plugins))] : []),
     ]
@@ -298,7 +312,7 @@ export const register: Register = on => {
       skills: () => void update($, showSkills, v => !v),
     }
 
-    const panel = draw(sections, W, f, caption).map((l, i) => {
+    const toRow = (l: Line, i: number) => {
       const row = (
         <Text wrap="truncate-end">
           {l.segs.map(s => (
@@ -316,7 +330,21 @@ export const register: Register = on => {
       ) : (
         row
       )
-    })
+    }
+
+    // the agents rows (and the rules between their sections) go in one Client, so a click focuses them for ↑/↓
+    // (props are plain JSON: the round trip drops the segments' undefined fields)
+    const lines = draw(sections, W, f, caption)
+    const first = lines.findIndex(l => l.press === 'agents')
+    const last = lines.findLastIndex(l => l.press === 'agents')
+    const panel =
+      first < 0 || !Client
+        ? lines.map(toRow)
+        : [
+            ...lines.slice(0, first).map(toRow),
+            <Client key="agents" module="./scroll.tsx" props={{ lines: JSON.parse(JSON.stringify(lines.slice(first, last + 1).map(l => l.segs))) }} />,
+            ...lines.slice(last + 1).map((l, i) => toRow(l, last + 1 + i)),
+          ]
 
     return (
       <Box flexDirection="column">

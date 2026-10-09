@@ -59,7 +59,7 @@ test('workflow agents go in their own section, labelled by run name', () => {
     { id: 'a', name: 'Explore', model: 'sonnet', description: 'look', startedAt: 0 },
     { id: 'b', name: 'worker', model: 'haiku', description: 'step', startedAt: 0, runId: 'wf_1' },
   ]
-  const secs = agentSections(rows, { wf_1: 'review-changes' }, 1000, 0)
+  const secs = agentSections(rows, { wf_1: 'review-changes' }, 1000, 0, 0)
   expect(secs.length).toBe(2)
   expect(text(secs[0]!)).toContain('agents')
   expect(text(secs[1]!)).toContain('review-changes')
@@ -110,7 +110,7 @@ test('a long branch is cut to fit; every line stays W wide and 5h stays', () => 
 
 test('an agent row with a long description fits at 80 columns and keeps its spinner', () => {
   const long: AgentRow = { id: 'a', name: 'Explore', model: 'sonnet', description: 'x'.repeat(120), startedAt: 0 }
-  const lines = panelLines(base, 80, agentSections([long], {}, 1000, 0))
+  const lines = panelLines(base, 80, agentSections([long], {}, 1000, 0, 0))
   for (const l of lines) expect([...l].length).toBe(80)
   expect(lines.some(l => l.includes('⠋'))).toBe(true)
 })
@@ -121,8 +121,20 @@ test('the meter shows tokens alone while the window is unknown', () => {
   expect(text(r2!)).not.toContain('5k/')
 })
 
+// Scrolled down, the label still heads the window, and the tail says what is above and below.
+test('agentSections scrolled: label on the first shown row, tail counts above and below', () => {
+  const rows: AgentRow[] = Array.from({ length: 7 }, (_, i) => ({ id: String(i), name: `A${i}`, model: 'haiku', description: 'd', startedAt: 0 }))
+  const s = agentSections(rows, {}, 1000, 0, 1)[0]!
+  expect(text(s).split('\n')[0]).toContain('agents 7')
+  expect(text(s).split('\n')[0]).toContain('A1')
+  expect(text(s)).not.toContain('A0')
+  expect(text(s)).toContain('↑ 1')
+  expect(text(s)).toContain('↓ 1 more')
+  expect(s.press).toBe('agents')
+})
+
 // The label is the running count, not the rows that fit: 10 running agents with 5 shown read "agents 10".
 test('the agents label counts every running agent, not only the rows shown', () => {
   const rows: AgentRow[] = Array.from({ length: 7 }, (_, i) => ({ id: String(i), name: 'Explore', model: 'haiku', description: 'd', startedAt: 0 }))
-  expect(text(agentSections(rows, {}, 1000, 0)[0]!)).toContain('agents 7')
+  expect(text(agentSections(rows, {}, 1000, 0, 0)[0]!)).toContain('agents 7')
 })

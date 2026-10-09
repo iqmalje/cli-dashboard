@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { AgentRow } from '../types'
-import { agentTokens, onPrompt, setTokens, spawn, stop, visible } from './agents'
+import { agentTokens, onPrompt, scrollBy, setTokens, spawn, stop, visible } from './agents'
 
 const row = (id: string, endedAt?: number): AgentRow => ({ id, name: id, model: 'sonnet', description: 'd', startedAt: 0, ...(endedAt === undefined ? {} : { endedAt }) })
 
@@ -28,16 +28,29 @@ test('agentTokens: last line per message id wins, summed across messages', () =>
   expect(agentTokens('')).toBe(0)
 })
 
-test('visible caps at 5 rows, running first, and counts what it hid', () => {
-  const rows = [...['1', '2', '3', '4', '5', '6'].map(id => row(id)), row('d1', 1), row('d2', 2)]
-  const v = visible(rows)
+const eight = [...['1', '2', '3', '4', '5', '6'].map(id => row(id)), row('d1', 1), row('d2', 2)]
+
+// Five rows show at a time, running first; the rest are a scroll away, counted above and below.
+test('visible shows a 5-row window, running first, and counts what is above and below', () => {
+  const v = visible(eight, 0)
   expect(v.shown.map(r => r.id)).toEqual(['1', '2', '3', '4', '5'])
-  expect(v.moreRunning).toBe(1)
-  expect(v.doneHidden).toBe(2)
+  expect([v.above, v.below]).toEqual([0, 3])
+  const w = visible(eight, 2)
+  expect(w.shown.map(r => r.id)).toEqual(['3', '4', '5', '6', 'd1'])
+  expect([w.above, w.below]).toEqual([2, 1])
 })
 
-test('visible fills spare rows with finished agents', () => {
-  const v = visible([row('1'), row('d1', 1)])
-  expect(v.shown.map(r => r.id)).toEqual(['1', 'd1'])
-  expect(v.doneHidden).toBe(0)
+// Rows finish and clear under a scrolled window: the offset must never show an empty window.
+test('visible clamps a stale offset to the last full window', () => {
+  const v = visible(eight, 99)
+  expect(v.shown.map(r => r.id)).toEqual(['4', '5', '6', 'd1', 'd2'])
+  expect([v.above, v.below]).toEqual([3, 0])
+  expect(visible([row('1')], 4).shown.map(r => r.id)).toEqual(['1'])
+})
+
+test('scrollBy moves one row and stops at both ends', () => {
+  expect(scrollBy(0, -1, 8)).toBe(0)
+  expect(scrollBy(0, 1, 8)).toBe(1)
+  expect(scrollBy(3, 1, 8)).toBe(3)
+  expect(scrollBy(0, 1, 4)).toBe(0)
 })

@@ -47,6 +47,7 @@ declare module 'claude-code' {
       tasks: readonly Task[]
       tasksOpen: boolean
       agents: readonly AgentRow[]
+      agentScroll: number
       agentDir: string
       runs: Readonly<Record<string, string>>
       skills: readonly string[]

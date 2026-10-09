@@ -87,8 +87,11 @@ Agents:
   then right-aligned in fixed widths: tokens (5), elapsed (6), and a braille spinner or `✓`.
 - Running rows take a flowing pastel hue. Finished rows are dim with `✓`.
 - An Agent Row stays until the next user prompt.
-- At most 5 rows. Extra running agents show as `+N more`. Finished agents beyond the cap
-  show as `✓ N done`.
+- At most 5 rows show at a time, running first. The rest are a scroll away: a click on the
+  agents rows focuses them, `↓`/`↑` move the window one row, Esc returns to the prompt. A tail
+  row counts what is out of view (`↑ 2  ↓ 3 more`). Mods cannot take arrow keys from the prompt
+  itself, so the click comes first. (Changed 2026-10-09, user decision: was `+N more` /
+  `✓ N done` with no way to see them.)
 - Source: `agent.spawn`, `classic.SubagentStart` / `classic.SubagentStop`, and
   `session.append` rows with `agentId` for token counts.
 

@@ -31,13 +31,15 @@ export const agentTokens = (jsonl: string) => {
 
 export const onPrompt = (rows: readonly AgentRow[]) => rows.filter(r => r.endedAt === undefined)
 
-export const visible = (rows: readonly AgentRow[]) => {
-  const running = rows.filter(r => r.endedAt === undefined)
-  const done = rows.filter(r => r.endedAt !== undefined)
-  const shown = [...running, ...done].slice(0, MAX_ROWS)
-  return {
-    shown,
-    moreRunning: Math.max(0, running.length - MAX_ROWS),
-    doneHidden: done.length - shown.filter(r => r.endedAt !== undefined).length,
-  }
+// The last offset that still fills the window.
+const maxOffset = (total: number) => Math.max(0, total - MAX_ROWS)
+
+export const scrollBy = (offset: number, by: number, total: number) => Math.min(maxOffset(total), Math.max(0, offset + by))
+
+// A MAX_ROWS window over running-then-finished rows, from `offset` (clamped, since rows come and go).
+export const visible = (rows: readonly AgentRow[], offset: number) => {
+  const ordered = [...rows.filter(r => r.endedAt === undefined), ...rows.filter(r => r.endedAt !== undefined)]
+  const at = Math.min(maxOffset(ordered.length), Math.max(0, offset))
+  const shown = ordered.slice(at, at + MAX_ROWS)
+  return { shown, above: at, below: ordered.length - at - shown.length }
 }

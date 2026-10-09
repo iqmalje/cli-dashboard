@@ -100,13 +100,13 @@ const group = (label: Cell, rows: readonly AgentRow[], tail: string | null, now:
   const modelW = Math.max(...rows.map(r => width(r.model))) + 2
   const body: Cell[][] = rows.map((r, i) => [i === 0 ? label : blank, agentBody(r, i, nameW, modelW, now, f)])
   if (tail) body.push([blank, cell({ text: tail, dim: true })])
-  return { rows: body, flex: 1 }
+  return { rows: body, flex: 1, press: 'agents' }
 }
 
-export function agentSections(rows: readonly AgentRow[], runs: Readonly<Record<string, string>>, now: number, f: number): Section[] {
-  const v = visible(rows)
+export function agentSections(rows: readonly AgentRow[], runs: Readonly<Record<string, string>>, now: number, f: number, offset: number): Section[] {
+  const v = visible(rows, offset)
   if (v.shown.length === 0) return []
-  const tail = [v.moreRunning > 0 ? `+${v.moreRunning} more` : '', v.doneHidden > 0 ? `✓ ${v.doneHidden} done` : '']
+  const tail = [v.above > 0 ? `↑ ${v.above}` : '', v.below > 0 ? `↓ ${v.below} more` : '']
     .filter(Boolean)
     .join('  ')
   const plain = v.shown.filter(r => r.runId === undefined)
