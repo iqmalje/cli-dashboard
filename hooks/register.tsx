@@ -254,14 +254,14 @@ export const register: Register = on => {
     return r
   })
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    // other plugins share the band: draw beneath ours, never replace it
+  // under the prompt, in the hint line's place; the engine's hint line stays above the Panel
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    // the engine's hint line and other plugins draw first; never replace them
     const below = await next(e)
-    if (e.props.hasSurvey) return below
     const { Box, Text, Button } = $.ui.resolve(e)
     const f = await read($, frame)
     const now = await $.clock.now()
-    const W = e.props.bodyColumns
+    const W = e.viewport?.columns ?? 80
 
     const data: FixedData = {
       now,

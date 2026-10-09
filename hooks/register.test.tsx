@@ -2,7 +2,8 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On, RenderElement } from 'claude-code'
 
-const PROPS = { hasSurvey: false, isWorking: false, maxRows: 30, bodyColumns: 120 } as never
+// The Panel sits under the prompt, in the hint line's place (the user's choice over the band above it).
+const PROPS = { isDraft: false, isWorking: false, hint: '? for shortcuts' } as never
 
 const text = (node: unknown): string =>
   typeof node === 'string'
@@ -16,11 +17,11 @@ const text = (node: unknown): string =>
 const setup = async ($: Engine, on: On) => {
   mock.clock(on)
   on('tool.call', { tool: 'TaskCreate' }, (_, e) => ({ result: { task: { id: '1', subject: e.subject } } }))
-  on('ui.render', { component: 'AbovePrompt' }, ($t, e) => {
+  on('ui.render', { component: 'PromptHint' }, ($t, e) => {
     const { Text } = $t.ui.resolve(e)
     return <Text>engine</Text>
   })
-  return $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  return $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS })
 }
 
 const drawn = async (ui: { drawn: () => Promise<RenderElement> }) => text(await ui.drawn())

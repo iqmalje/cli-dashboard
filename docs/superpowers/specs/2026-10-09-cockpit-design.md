@@ -23,7 +23,7 @@ Vocabulary is defined in `CONTEXT.md`. This spec uses those terms.
 
 | # | Decision |
 |---|----------|
-| Placement | One AbovePrompt band (the Panel). No status line script. Fast mode is not shown, because the mod API does not expose it. |
+| Placement | The Panel is drawn under the prompt, in the `PromptHint` slot below the engine's hint line (moved from the AbovePrompt band on 2026-10-09, user decision). No status line script. Fast mode is not shown, because the mod API does not expose it. |
 | Name | `cockpit`. `claude-panel` is refused by `claude plugin validate`: the `claude-` prefix is reserved. |
 | Repo | `~/Documents/cockpit`, a new git repository. |
 | Loading | `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`, which points to `~/Documents/cockpit`. Interactive sessions hot-reload it. |
