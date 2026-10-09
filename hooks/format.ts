@@ -4,7 +4,7 @@ import type { Git } from '../types'
 export const width = (s: string) => [...s].length
 
 export const fmtTokens = (n: number) =>
-  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)
 
 export const fmtDuration = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000))

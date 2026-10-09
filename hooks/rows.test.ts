@@ -29,7 +29,8 @@ test('fixedRows: row 1 holds where/who, row 2 holds how full', () => {
   expect(text(r1!)).toContain('opus 5.5')
   expect(text(r1!)).toContain('42%')
   expect(text(r2!)).toContain('Foggy')
-  expect(text(r2!)).toContain('464k')
+  // the token count alone does not say how full: the window beside it does
+  expect(text(r2!)).toContain('464k/1M')
   expect(text(r2!)).toContain('3:41')
 })
 
@@ -112,4 +113,10 @@ test('an agent row with a long description fits at 80 columns and keeps its spin
   const lines = panelLines(base, 80, agentSections([long], {}, 1000, 0))
   for (const l of lines) expect([...l].length).toBe(80)
   expect(lines.some(l => l.includes('⠋'))).toBe(true)
+})
+
+test('the meter shows tokens alone while the window is unknown', () => {
+  const [, r2] = fixedRows({ ...base, usage: { contextTokens: 5000, window: 0 } }, new Set())
+  expect(text(r2!)).toContain('· 5k')
+  expect(text(r2!)).not.toContain('5k/')
 })

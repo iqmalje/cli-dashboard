@@ -6,6 +6,7 @@ test('fmtTokens: plain under 1k, k under 1M, one-decimal M above', () => {
   expect(fmtTokens(950)).toBe('950')
   expect(fmtTokens(412_300)).toBe('412k')
   expect(fmtTokens(1_250_000)).toBe('1.3M')
+  expect(fmtTokens(1_000_000)).toBe('1M')
 })
 
 // Short durations read as a clock (0:42), hours as 1h 12m (spaced to read at a glance), days as 3d.

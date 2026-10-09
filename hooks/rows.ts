@@ -68,7 +68,7 @@ export function fixedRows(d: FixedData, drops: ReadonlySet<Drop>): Section[] {
     { text: '\u{1FB0B}', grow: f, hues: [160, st.hue] },
     { text: '\u{1FB0B}', grow: 1 - f, color: oklch(0.32, 0.02, 280) },
     { text: `  ${st.name}`, color: pastel(st.hue), bold: true },
-    { text: ` · ${fmtTokens(tokens)}`, dim: true },
+    { text: ` · ${fmtTokens(tokens)}${d.usage?.window ? `/${fmtTokens(d.usage.window)}` : ''}`, dim: true },
   )
   const row2: Cell[] = [meter, cell(ic(ICON.tokens, 180), { text: fmtTokens(d.sessionTokens) }, { text: ' tok', dim: true })]
   if (d.cacheLeftMs !== null && !drops.has('cache')) {
