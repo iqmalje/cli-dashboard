@@ -15,9 +15,9 @@ export type Cell = { parts: readonly Part[] }
 export type Section = { rows: readonly (readonly Cell[])[]; flex: number; press?: string }
 export type Seg = { text: string; color?: string; dim?: boolean; bold?: boolean }
 export type Line = { segs: readonly Seg[]; press?: string }
-export type Drop = 'sevenDay' | 'sessionName' | 'dirty' | 'cache' | 'dirBase'
+export type Drop = 'dirShort' | 'sevenDay' | 'sessionName' | 'dirty' | 'cache'
 
-export const DROP_ORDER: readonly Drop[] = ['sevenDay', 'sessionName', 'dirty', 'cache', 'dirBase']
+export const DROP_ORDER: readonly Drop[] = ['dirShort', 'sevenDay', 'sessionName', 'dirty', 'cache']
 export const BORDER = oklch(0.6, 0.05, 280)
 const MIN_CELL = 4
 

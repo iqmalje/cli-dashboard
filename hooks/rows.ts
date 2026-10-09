@@ -1,7 +1,7 @@
 import type { AgentRow, Git, Limit, Task, Usage } from '../types'
 import { visible } from './agents'
 import { oklch, pastel } from './color'
-import { basename, fmtDuration, fmtModel, fmtTokens, shortenHome, width } from './format'
+import { fmtDuration, fmtModel, fmtTokens, shortDir, shortenHome, width } from './format'
 import type { Cell, Drop, Part, Section } from './frame'
 import { dumbState, fill } from './meter'
 import { active } from './tasks'
@@ -49,7 +49,7 @@ const limit = (label: string, l: Limit, icon: string, h: number, now: number) =>
   )
 
 export function fixedRows(d: FixedData, drops: ReadonlySet<Drop>): Section[] {
-  const row1: Cell[] = [cell(ic(ICON.dir, 280), { text: drops.has('dirBase') ? basename(d.cwd) : shortenHome(d.cwd, d.home) })]
+  const row1: Cell[] = [cell(ic(ICON.dir, 280), { text: drops.has('dirShort') ? shortDir(shortenHome(d.cwd, d.home)) : shortenHome(d.cwd, d.home) })]
   const named = !drops.has('sessionName')
   if (named) row1.push(cell(ic(ICON.session, 20), { text: d.sessionName ?? '…', color: pastel(20) }))
   if (d.git) {

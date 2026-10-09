@@ -115,9 +115,10 @@ Skills/plugins:
 
 ### Narrow terminals
 
-When the cells do not fit, drop them in this order: 7d, Session Name, branch dirty count,
-Cache Countdown, then shorten the directory to its basename. The Dumb Meter, Model and 5h
-cells are never dropped.
+When the cells do not fit, first shorten the directory to its last two folders
+(`…/work-repos/api-relay`, so sibling repositories still read apart), then drop in this order:
+7d, Session Name, branch dirty count, Cache Countdown. The Dumb Meter, Model and 5h cells are
+never dropped. (Changed 2026-10-09, user decision: the basename step came last and 7d first.)
 
 ### Motion
 

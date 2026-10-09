@@ -39,13 +39,13 @@ test('fixedRows without rate limits', () => {
   expect(text(r1!)).not.toContain('7d')
 })
 
-test('fixedRows honours drops: 7d, session name, dirty, cache, dir basename', () => {
-  const [r1, r2] = fixedRows(base, new Set(['sevenDay', 'sessionName', 'dirty', 'cache', 'dirBase'] as const))
+test('fixedRows honours drops: short dir, 7d, session name, dirty, cache', () => {
+  const deep = { ...base, cwd: '/Users/a/code/work-repos/api-relay' }
+  const [r1, r2] = fixedRows(deep, new Set(['dirShort', 'sevenDay', 'sessionName', 'dirty', 'cache'] as const))
   expect(text(r1!)).not.toContain('18%')
   expect(text(r1!)).not.toContain('cockpit-1a')
   expect(text(r1!)).not.toContain('•3')
-  expect(text(r1!)).toContain('cockpit')
-  expect(text(r1!)).not.toContain('~/Documents')
+  expect(text(r1!)).toContain('…/work-repos/api-relay')
   expect(text(r2!)).not.toContain('3:41')
 })
 

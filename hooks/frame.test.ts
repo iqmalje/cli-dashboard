@@ -46,11 +46,11 @@ test('the bottom caption sits in the border and carries its press key', () => {
 })
 
 test('planDrops drops in order until it fits', () => {
-  const widths: Record<string, number> = { sevenDay: 10, sessionName: 20, dirty: 3, cache: 9, dirBase: 8 }
+  const widths: Record<string, number> = { sevenDay: 10, sessionName: 20, dirty: 3, cache: 9, dirShort: 8 }
   const need = (drops: ReadonlySet<string>) => 100 - [...drops].reduce((n, d) => n + (widths[d] ?? 0), 0)
   expect([...planDrops(need, 100)]).toEqual([])
-  expect([...planDrops(need, 85)]).toEqual(['sevenDay', 'sessionName'])
-  expect([...planDrops(need, 10)]).toEqual(['sevenDay', 'sessionName', 'dirty', 'cache', 'dirBase'])
+  expect([...planDrops(need, 85)]).toEqual(['dirShort', 'sevenDay'])
+  expect([...planDrops(need, 10)]).toEqual(['dirShort', 'sevenDay', 'sessionName', 'dirty', 'cache'])
 })
 
 test('rowWidth counts each cell, its dividers and both borders', () => {

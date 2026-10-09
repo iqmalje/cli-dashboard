@@ -31,7 +31,11 @@ export const effortFromSettings = (s: Record<string, unknown>, model: string): s
 export const shortenHome = (path: string, home: string) =>
   path === home ? '~' : home !== '' && path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path
 
-export const basename = (path: string) => path.split('/').filter(Boolean).pop() ?? path
+// Keep the last two folders so sibling repos still read apart: ~/a/b/c/d -> …/c/d
+export const shortDir = (path: string) => {
+  const parts = path.split('/')
+  return parts.length > 3 ? `…/${parts.slice(-2).join('/')}` : path
+}
 
 // `git status --porcelain=v1 --branch`: the first line names the branch, each other line is one changed file.
 export const parseGit = (exitCode: number, stdout: string): Git | null => {
