@@ -124,42 +124,13 @@ cells are never dropped.
 Only these animate: the Dumb Meter gradient (always), running Agent Rows, and the active
 task marker. One `$.clock.every(120)` timer drives a frame counter. Everything else is still.
 
-## Activity line
-
-The main loop's spinner line (the `Spinner` render site) shows what Claude is doing now.
-
-- A `ui.render` hook on `{ component: 'Spinner' }` rewrites `props.word`. The engine still
-  draws elapsed time, tokens and effort.
-- When `props.message` is set (a retry, a permission wait; treat any falsy value as absent), the hook passes the event
-  through unchanged.
-- Text comes from the in-flight main-loop tool calls (calls with an `agentId` are ignored).
-  The most recently started call that is still running supplies the text. When no call is
-  running: `thinking` or `responding` from `props.mode`, otherwise the engine's own word.
-- Wording (pure function, no model call):
-
-| Tool | Text |
-|------|------|
-| Edit, Write, NotebookEdit | `writing to <basename>` |
-| Read | `reading <basename>` |
-| Bash | `running <description, else command>` (48 chars max) |
-| Grep, Glob | `searching for "<pattern>"` (32 chars max) |
-| Agent | `briefing <description>`; with 2 or more in flight, `orchestrating N agents` |
-| WebFetch | `reading <domain>` |
-| WebSearch | `searching the web for "<query>"` |
-| TaskCreate, TaskUpdate | the task's `activeForm`, else `updating tasks` |
-| Skill | `loading <skill>` |
-| `mcp__*` | `calling <server> <tool>` |
-| other | `using <tool>` |
-
-- Agent Rows do not show live activity. Their descriptions stay static.
-
 ## Information kept and dropped
 
 Kept from YAS: directory, git branch and dirty count, Cache Countdown, 5h and 7d limits,
 model and effort, Dumb Meter, Session Tokens (one total), task list, subagents, workflows,
 skills and plugins (behind a toggle).
 
-Added: Session Name, activity line, expandable tasks.
+Added: Session Name, expandable tasks.
 
 Dropped: session and clear timers, cost, lines read/changed, per-tool counts, tokens/min
 sparkline, OpenSpec bars, fast mode, context-window percentage.
@@ -181,14 +152,13 @@ Pure functions only, run with `claude plugin test`:
 2. Narrow-terminal drop order: at a given width, the expected cells remain.
 3. Agent Row lifetime: a finished agent stays until the next prompt and then goes.
 4. Cache Countdown: 5-minute and 1-hour TTL from the last response time.
-5. Activity wording: one case per tool row of the table above.
 
 No rendering tests.
 
 ## Visual reference
 
 The approved throwaway preview: `~/.claude/dev-mods/630be510-971d-4152-b0bd-8c1141a914d7/panel-preview/`.
-It uses fake data except for Session Name and the activity line. It is deleted after the real
+It uses fake data except for Session Name. It is deleted after the real
 build matches it.
 
 ## Out of scope
@@ -196,3 +166,4 @@ build matches it.
 - Forgetting-signal health metrics (the dumb-meter experiment).
 - Configuration files, themes, an install wizard, a marketplace entry.
 - Cost display.
+- A live activity line on the spinner (tried in the preview and dropped: it changed too fast to read).
