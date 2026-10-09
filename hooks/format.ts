@@ -10,7 +10,7 @@ export const fmtDuration = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000))
   const h = Math.floor(s / 3600)
   if (h >= 24) return `${Math.floor(h / 24)}d`
-  if (h >= 1) return `${h}h${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`
+  if (h >= 1) return `${h}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
@@ -20,6 +20,13 @@ export const fmtModel = (id: string) =>
     .replace(/\[.*\]$/, '')
     .replace(/-(\d+)-(\d+)(-.*)?$/, ' $1.$2')
     .replace(/-(\d+)$/, ' $1')
+
+// Settings keep a per-model effort (modelSettings) over the global one; the model id may carry a [1m] suffix.
+export const effortFromSettings = (s: Record<string, unknown>, model: string): string | null => {
+  const per = (s.modelSettings as Record<string, { effortLevel?: unknown } | undefined> | undefined)?.[model.replace(/\[.*\]$/, '')]?.effortLevel
+  const level = per ?? s.effortLevel
+  return typeof level === 'string' ? level : null
+}
 
 export const shortenHome = (path: string, home: string) =>
   path === home ? '~' : home !== '' && path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path

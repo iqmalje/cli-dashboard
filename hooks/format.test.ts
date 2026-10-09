@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { basename, cacheLeft, CACHE_TTL_MS, fmtDuration, fmtModel, fmtTokens, parseGit, shortenHome } from './format'
+import { basename, cacheLeft, CACHE_TTL_MS, effortFromSettings, fmtDuration, fmtModel, fmtTokens, parseGit, shortenHome } from './format'
 
 test('fmtTokens: plain under 1k, k under 1M, one-decimal M above', () => {
   expect(fmtTokens(950)).toBe('950')
@@ -8,10 +8,10 @@ test('fmtTokens: plain under 1k, k under 1M, one-decimal M above', () => {
   expect(fmtTokens(1_250_000)).toBe('1.3M')
 })
 
-// Short durations read as a clock (0:42), hours as 1h12m, days as 3d, as YAS did.
+// Short durations read as a clock (0:42), hours as 1h 12m (spaced to read at a glance), days as 3d.
 test('fmtDuration: clock under an hour, h+m under a day, days above', () => {
   expect(fmtDuration(42_000)).toBe('0:42')
-  expect(fmtDuration(72 * 60_000)).toBe('1h12m')
+  expect(fmtDuration(72 * 60_000)).toBe('1h 12m')
   expect(fmtDuration(3 * 86_400_000 + 5_000)).toBe('3d')
   expect(fmtDuration(-5)).toBe('0:00')
 })
@@ -43,4 +43,13 @@ test('cacheLeft counts down from the last response and stops at 0', () => {
   expect(cacheLeft(null, 1000)).toBe(null)
   expect(cacheLeft(1000, 1000 + 60_000)).toBe(CACHE_TTL_MS - 60_000)
   expect(cacheLeft(1000, 1000 + CACHE_TTL_MS + 1)).toBe(0)
+})
+
+// A fresh session has run no tool yet, so no hook has carried the effort: the settings seed it,
+// per model first, because a per-model level overrides the global one.
+test('effortFromSettings: per-model level, else the global one, else null', () => {
+  const s = { effortLevel: 'high', modelSettings: { 'claude-opus-5-5': { effortLevel: 'medium' } } }
+  expect(effortFromSettings(s, 'claude-opus-5-5[1m]')).toBe('medium')
+  expect(effortFromSettings(s, 'claude-sonnet-5')).toBe('high')
+  expect(effortFromSettings({}, 'claude-sonnet-5')).toBe(null)
 })

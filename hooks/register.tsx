@@ -3,7 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { AgentRow, Limit, Task, Usage } from '../types'
 import { agentTokens, onPrompt, setTokens, spawn, stop } from './agents'
-import { cacheLeft, parseGit } from './format'
+import { cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
 import type { Drop, Line } from './frame'
 import { agentSections, fixedRows, ICON, sessionNameFrom, skillsSection, taskSection } from './rows'
@@ -98,6 +98,9 @@ async function refreshSession($: EngineInterface) {
   const settings = await $.settings.read()
   const enabled = (settings.enabledPlugins ?? {}) as Record<string, unknown>
   await update($, plugins, () => Object.keys(enabled).filter(k => enabled[k] === true).map(k => k.split('@')[0] ?? k))
+  // no hook carries effort until the first tool call or turn end; seed it from settings meanwhile
+  const seed = effortFromSettings(settings, m)
+  if (seed) await update($, effort, v => v ?? seed)
   await refreshGit($)
   await refreshSessionName($)
 }
@@ -137,6 +140,13 @@ export const register: Register = on => {
 
   // turn.step is a streaming event; effort rides on classic hook inputs instead
   on('classic.PostToolUse', async ($, e, next) => {
+    const level = e.agent_id ? undefined : e.effort?.level
+    if (level) await update($, effort, () => level)
+    return next(e)
+  })
+
+  // a turn with no tool call still ends with Stop, which carries the effort too
+  on('classic.Stop', async ($, e, next) => {
     const level = e.effort?.level
     if (level) await update($, effort, () => level)
     return next(e)
