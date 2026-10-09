@@ -39,3 +39,15 @@ test('a created task adds the tasks section', async ($, on) => {
   await $.tool.call({ tool: 'TaskCreate', subject: 'Write plan', description: 'd' } as never)
   expect(await drawn(ui)).toContain('0/1')
 })
+
+// SubagentStop is not raised for every agent (workflow agents, stopped agents): the subagent's own
+// turn.complete must finish its row, or it spins until the session ends.
+test('a subagent turn completing marks its Agent Row done', async ($, on) => {
+  on('agent.spawn', () => ({ model: 'sonnet', agentId: 'a1' }))
+  on('turn.complete', (_, e) => ({ text: e.answer }))
+  const ui = await setup($, on)
+  await $.agent.spawn({ tool_use_id: 't1', description: 'look around', subagentType: 'Explore' } as never)
+  expect(await drawn(ui)).toContain('agents 1')
+  await $.turn.complete({ agentId: 'a1', reason: 'answer', answer: 'done', durationMs: 1, isAborted: false, turnId: 'u1' } as never)
+  expect(await drawn(ui)).toContain('agents 0')
+})

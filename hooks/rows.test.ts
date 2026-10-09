@@ -3,7 +3,8 @@ import { expect, test } from 'claude-code/testing'
 import type { AgentRow, Task } from '../types'
 import { agentSections, fixedRows, sessionNameFrom, taskSection } from './rows'
 import type { FixedData } from './rows'
-import type { Section } from './frame'
+import { draw, planDrops, rowWidth } from './frame'
+import type { Drop, Section } from './frame'
 
 const text = (s: Section) => s.rows.map(r => r.map(c => c.parts.map(p => p.text).join('')).join('|')).join('\n')
 
@@ -86,4 +87,29 @@ test('sessionNameFrom skips malformed files', () => {
   ]
   expect(sessionNameFrom(files, 'me')).toBe('cockpit-1a')
   expect(sessionNameFrom(files.slice(0, 2), 'me')).toBe(null)
+})
+
+// The frame must stay straight at any width: a line wider than the terminal is cut at its right edge,
+// which takes the border and the 5h cell the spec says is never dropped.
+const panelLines = (d: FixedData, W: number, extra: Section[] = []) => {
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(d, drops).map(s => rowWidth(s.rows[0] ?? [])))
+  return draw([...fixedRows(d, planDrops(need, W)), ...extra], W, 0).map(l => l.segs.map(s => s.text).join(''))
+}
+
+// Below about 55 columns row 1 cannot hold dir, model and 5h whole; there it is cut, never wider than W.
+test('a long branch is cut to fit; every line stays W wide and 5h stays', () => {
+  const d = { ...base, git: { branch: 'feature/abc-12453-payment-webhook-signature', dirty: 3 } }
+  for (const W of [40, 60, 80]) {
+    const lines = panelLines(d, W)
+    for (const l of lines) expect([...l].length).toBe(W)
+    if (W >= 60) expect(lines[1]).toContain('5h 42%')
+    expect(lines[1]?.endsWith('│')).toBe(true)
+  }
+})
+
+test('an agent row with a long description fits at 80 columns and keeps its spinner', () => {
+  const long: AgentRow = { id: 'a', name: 'Explore', model: 'sonnet', description: 'x'.repeat(120), startedAt: 0 }
+  const lines = panelLines(base, 80, agentSections([long], {}, 1000, 0))
+  for (const l of lines) expect([...l].length).toBe(80)
+  expect(lines.some(l => l.includes('⠋'))).toBe(true)
 })

@@ -151,8 +151,12 @@ export const register: Register = on => {
     const u = e.usage
     const n = u ? u.input_tokens + u.output_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens : 0
     await update($, sessionTokens, t => t + n)
-    if (!e.agentId) {
-      const now = await $.clock.now()
+    const now = await $.clock.now()
+    // a subagent run is one turn; SubagentStop is not raised for every agent (workflow, stopped)
+    const id = e.agentId
+    if (id) {
+      await update($, agents, rows => stop(rows, id, now))
+    } else {
       await update($, lastResponseAt, () => now)
       await refreshGit($)
     }
@@ -247,7 +251,7 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const f = await read($, frame)
     const now = await $.clock.now()
-    const W = Math.max(40, e.props.bodyColumns)
+    const W = e.props.bodyColumns
 
     const data: FixedData = {
       now,

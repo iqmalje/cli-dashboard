@@ -19,6 +19,7 @@ export type Drop = 'sevenDay' | 'sessionName' | 'dirty' | 'cache' | 'dirBase'
 
 export const DROP_ORDER: readonly Drop[] = ['sevenDay', 'sessionName', 'dirty', 'cache', 'dirBase']
 export const BORDER = oklch(0.6, 0.05, 280)
+const MIN_CELL = 4
 
 export const cellWidth = (c: Cell) => c.parts.reduce((n, p) => n + (p.grow === undefined ? width(p.text) : 0), 0) + 2
 
@@ -40,6 +41,12 @@ const fit = (s: Section, W: number) => {
   const slack = W - 2 - (n - 1) - w.reduce((a, b) => a + b, 0)
   const fw = w[s.flex]
   if (slack > 0 && fw !== undefined) w[s.flex] = fw + slack
+  // too wide: take one cell at a time from the widest column; cellSegs cuts its text with …
+  for (let over = -slack; over > 0; over--) {
+    const max = Math.max(...w)
+    if (max <= MIN_CELL) break
+    w[w.indexOf(max)] = max - 1
+  }
   return w
 }
 
@@ -60,7 +67,23 @@ const rule = (l: string, r: string, up: ReadonlySet<number>, down: ReadonlySet<n
   return s + r
 }
 
-const cellSegs = (c: Cell, w: number, f: number): Seg[] => {
+// Cut the widest text parts with … until the cell fits its column.
+const squeeze = (c: Cell, w: number): Cell => {
+  const parts = [...c.parts]
+  for (let over = cellWidth(c) - w; over > 0; ) {
+    const sized = parts.map((p, i) => ({ i, n: p.grow === undefined ? width(p.text) : 0 }))
+    const top = sized.reduce((a, b) => (b.n > a.n ? b : a))
+    const p = parts[top.i]
+    if (!p || top.n <= 1) break
+    const keep = Math.max(0, top.n - over - 1)
+    parts[top.i] = { ...p, text: `${[...p.text].slice(0, keep).join('')}…` }
+    over -= top.n - keep - 1
+  }
+  return { parts }
+}
+
+const cellSegs = (cell: Cell, w: number, f: number): Seg[] => {
+  const c = squeeze(cell, w)
   const slack = Math.max(0, w - cellWidth(c))
   const weight = c.parts.reduce((n, p) => n + (p.grow ?? 0), 0)
   const growers = c.parts.filter(p => p.grow !== undefined)
