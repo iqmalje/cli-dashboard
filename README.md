@@ -43,11 +43,17 @@ The meter measures context tokens against a **soft limit**: 800k tokens, or the 
 
 The panel grows and shrinks with what is going on and how wide your terminal is.
 
-| State | When | Screenshot |
-| --- | --- | --- |
-| **Full** | Subagents running, tasks open, skills shown (132 columns) | <img src="docs/images/full.png" alt="Full panel" width="520"> |
-| **Partial** | The everyday view: the two fixed rows and the current task (112 columns) | <img src="docs/images/partial.png" alt="Partial panel with the fixed rows and the tasks row" width="520"> |
-| **Shrunken** | A narrow terminal (76 columns) | <img src="docs/images/shrunken.png" alt="Shrunken panel with shortened cells and hidden extras" width="360"> |
+**Full**: subagents running, tasks open, skills shown (132 columns).
+
+<p align="center"><img src="docs/images/full.png" alt="Full panel with every section open" width="100%"></p>
+
+**Partial**: the everyday view, with the two fixed rows and the current task (112 columns).
+
+<p align="center"><img src="docs/images/partial.png" alt="Partial panel with the fixed rows and the tasks row" width="100%"></p>
+
+**Shrunken**: a narrow terminal (76 columns).
+
+<p align="center"><img src="docs/images/shrunken.png" alt="Shrunken panel with shortened cells and hidden extras" width="540"></p>
 
 When the top row runs out of room, the panel gives things up in a fixed order: it shortens the directory, then hides the 7-day limit, the session name, the dirty count and the cache countdown. It then takes back anything that fits again, so a long session name never costs you the 7-day limit. Anything still too long is cut with `…`.
 
