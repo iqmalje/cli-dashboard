@@ -8,18 +8,12 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 
 </div>
 
-```
-╭─────────────────────────┬────────────────┬───────────────────┬──────────────────┬────────────────╮
-│ …/work-repos/api-relay  │ api-relay-15   │ feature/webhooks  │ opus 5.5 · high  │ 5h 25% 43:52   │
-├─────────────────────────┴────────────────┴───────────────────┴─────────┬────────┴─┬──────────────┤
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━────────────  Coasting · 299k/1M             │ 55M tok  │ cache 55:45  │
-├────────────┬───────────────────────────────────────────────────────────┴──────────┴──────────────┤
-│ agents 1   │ general-purpose  opus 5.5 · medium  Final review          3.9M  4:35  ⠋             │
-│            │ general-purpose  opus 5.5 · medium  Review Task A6        1.6M  2:12  ✓             │
-├────────────┴┬────────────────────────────────────────────────────────────────────────────────────┤
-│ tasks 5/6 ▸ │ ▸ Final whole-branch reviews                                                       │
-╰─────────────┴─────────────────────────────────────────────────────────────────────── 1 skills ▸ ─╯
-```
+<p align="center">
+  <img src="docs/images/full.png" alt="cli-dashboard with every section open: where and who, how full, agents, tasks, and skills and plugins, each labelled" width="100%">
+</p>
+
+> Inspired by [**YAS! (Yet Another Statusline)**](https://github.com/tmck-code/yet-another-statusline) by tmck-code. Go give it a star.
+
 
 ## What it shows
 
@@ -45,9 +39,17 @@ The meter measures context tokens against a **soft limit**: 800k tokens, or the 
 | 70–90% | **Cooked** |
 | 90% and over | **Dumb** |
 
-### Fits any terminal width
+### Full, partial and shrunken
 
-When the top row runs out of room, the panel gives things up in a fixed order: it shortens the directory, then hides the 7-day limit, the session name, the dirty count and the cache countdown. It then takes back anything that fits again, so a long session name never costs you the 7-day limit.
+The panel grows and shrinks with what is going on and how wide your terminal is.
+
+| State | When | Screenshot |
+| --- | --- | --- |
+| **Full** | Subagents running, tasks open, skills shown (132 columns) | <img src="docs/images/full.png" alt="Full panel" width="520"> |
+| **Partial** | The everyday view: the two fixed rows and the current task (112 columns) | <img src="docs/images/partial.png" alt="Partial panel with the fixed rows and the tasks row" width="520"> |
+| **Shrunken** | A narrow terminal (76 columns) | <img src="docs/images/shrunken.png" alt="Shrunken panel with shortened cells and hidden extras" width="360"> |
+
+When the top row runs out of room, the panel gives things up in a fixed order: it shortens the directory, then hides the 7-day limit, the session name, the dirty count and the cache countdown. It then takes back anything that fits again, so a long session name never costs you the 7-day limit. Anything still too long is cut with `…`.
 
 ## Requirements
 
@@ -129,6 +131,8 @@ hooks/
   color.ts       OKLCH colours and the flowing gradient
   scroll.tsx     the focusable agents region (↑ / ↓)
 types/           the panel's own types and its state shape
+tools/
+  screenshots/   renders the README images from the drawing code
 CONTEXT.md       the project's vocabulary (Panel, Cell, Dumb Meter, ...)
 ```
 
@@ -146,6 +150,14 @@ npx -p typescript tsc --noEmit -p .
 
 `tsconfig.json` extends `.claude-plugin/types/tsconfig.json`. Claude Code writes that folder (the engine's API types) the first time it loads the mod, so start one session with the mod installed before you type-check. It is git-ignored.
 
+Regenerate the README screenshots after a visual change (needs Google Chrome and FiraCode Nerd Font):
+
+```sh
+bun tools/screenshots/render.ts
+```
+
+The script draws the panel with the mod's own code at fixed widths and writes `docs/images/*.png`. The data in it is made up.
+
 ### A note on events
 
 On Claude Code 2.1.295, the `classic.*` hook events (`SessionStart`, `PostToolUse`, `Stop`, `SubagentStop`, and the rest) never reach a mod, although the API types document them. The panel uses only events that do arrive: `session.start`, `turn.step`, `turn.complete`, `prompt.submit`, `agent.spawn` and `tool.call`. Check that an event fires before you build on it.
@@ -155,6 +167,11 @@ On Claude Code 2.1.295, the `classic.*` hook events (`SessionStart`, `PostToolUs
 - The panel sits below Claude Code's mode line (`auto mode on (shift+tab to cycle)`). The terminal draws that line itself, and a mod cannot draw above it from under the prompt.
 - Live agent tokens are read from transcripts on disk every 2 seconds. A transcript over 4 MiB cannot be read, so its count stops at the last value read.
 - After `/clear`, the task list is reloaded with the first request after your next prompt.
+
+## Credits
+
+- [**YAS! (Yet Another Statusline)**](https://github.com/tmck-code/yet-another-statusline) by tmck-code, the statusline this project grew out of. cli-dashboard started as a mod that shows what YAS shows, live and clickable, under the prompt. If you want a statusline, use YAS.
+- [**Dumbometer**](https://github.com/MaximoCorrea1/dumbometer) by Maximo Correa Rosas, for the Smart → Dumb state words and their thresholds, which YAS ported and this project reuses.
 
 ## License
 
