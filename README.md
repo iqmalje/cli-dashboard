@@ -6,7 +6,12 @@
 
 Context health, rate limits, subagents, tasks and skills, all in one bordered panel that updates as you work.
 
+**Alpha** · v0.1.0
+
 </div>
+
+> [!NOTE]
+> cli-dashboard is in **alpha**. It ships one look, the author's own: one colour palette, one soft limit, one icon set. Settings to change these are planned (see the [Roadmap](#roadmap)). Expect rough edges, and expect the layout to change between releases.
 
 <p align="center">
   <img src="docs/images/full.png" alt="cli-dashboard with every section open: where and who, how full, agents, tasks, and skills and plugins, each labelled" width="100%">
@@ -191,6 +196,18 @@ On Claude Code 2.1.295, the `classic.*` hook events (`SessionStart`, `PostToolUs
 - The panel sits below Claude Code's mode line (`auto mode on (shift+tab to cycle)`). The terminal draws that line itself, and a mod cannot draw above it from under the prompt.
 - Live agent tokens are read from transcripts on disk every 2 seconds. A transcript over 4 MiB cannot be read, so its count stops at the last value read.
 - After `/clear`, the task list is reloaded with the first request after your next prompt.
+
+## Roadmap
+
+cli-dashboard is in alpha, and today everything is fixed to one style. Planned:
+
+- **Colour palettes**: pick a theme, or set your own colours for the border, meter and sections.
+- **Soft limit**: set the token count the Dumb Meter treats as full (now 800k, or the context window if smaller).
+- **Icon packs**: choose between Nerd Font icon sets, or plain text for terminals without a Nerd Font.
+- **Meter states**: rename the five states and move their thresholds.
+- **Sections and cells**: choose which ones show, and in what order.
+
+Ideas and requests are welcome in [issues](https://github.com/iqmalje/cli-dashboard/issues).
 
 ## Credits
 
