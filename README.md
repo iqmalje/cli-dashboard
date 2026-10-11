@@ -89,6 +89,7 @@ Then choose **FiraCode Nerd Font** in your terminal (for example iTerm2: Setting
 ### Updating
 
 ```sh
+claude plugin marketplace update cli-dashboard
 claude plugin update cli-dashboard@cli-dashboard
 ```
 
