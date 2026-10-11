@@ -8,7 +8,7 @@ const lineText = (l: Line) => l.segs.map(s => s.text).join('')
 const W = 60
 
 const sections: Section[] = [
-  { rows: [[cell('~/cockpit'), cell('name'), cell('opus 5.5')]], flex: 1 },
+  { rows: [[cell('~/cli-dashboard'), cell('name'), cell('opus 5.5')]], flex: 1 },
   { rows: [[cell('meter'), { parts: [{ text: '━', grow: 1 }] }, cell('cache 3:41')]], flex: 1 },
   { rows: [[cell('agents 2'), cell('Explore')], [cell(''), cell('Plan')]], flex: 1, press: 'agents' },
 ]

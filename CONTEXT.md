@@ -1,4 +1,4 @@
-# cockpit
+# cli-dashboard
 
 A personal Claude Code display that shows session health and live activity at a glance.
 
@@ -25,7 +25,7 @@ The time left before the prompt cache expires.
 _Avoid_: TTL
 
 **Panel**:
-The bordered block drawn above the prompt that holds every Cell.
+The bordered block drawn under the prompt that holds every Cell.
 _Avoid_: statusline, band, bar
 
 **Cell**:

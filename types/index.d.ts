@@ -33,7 +33,7 @@ export type Git = { readonly branch: string; readonly dirty: number }
 
 declare module 'claude-code' {
   interface PluginState {
-    'cockpit': {
+    'cli-dashboard': {
       frame: number
       home: string
       configDir: string

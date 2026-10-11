@@ -11,27 +11,27 @@ import type { FixedData } from './rows'
 import { applyToolCall } from './tasks'
 import type { TaskCall } from './tasks'
 
-const frame = atom({ plugin: 'cockpit', key: 'frame' } as const, 0)
-const home = atom({ plugin: 'cockpit', key: 'home' } as const, '')
-const configDir = atom({ plugin: 'cockpit', key: 'configDir' } as const, '')
-const cwd = atom({ plugin: 'cockpit', key: 'cwd' } as const, '')
-const usage = atom({ plugin: 'cockpit', key: 'usage' } as const, null as Usage | null)
-const model = atom({ plugin: 'cockpit', key: 'model' } as const, '')
-const effort = atom({ plugin: 'cockpit', key: 'effort' } as const, null as string | null)
-const git = atom({ plugin: 'cockpit', key: 'git' } as const, null as { branch: string; dirty: number } | null)
-const sessionName = atom({ plugin: 'cockpit', key: 'sessionName' } as const, null as string | null)
-const sessionTokens = atom({ plugin: 'cockpit', key: 'sessionTokens' } as const, 0)
-const lastResponseAt = atom({ plugin: 'cockpit', key: 'lastResponseAt' } as const, null as number | null)
-const tasks = atom({ plugin: 'cockpit', key: 'tasks' } as const, [] as readonly Task[])
-const tasksOpen = atom({ plugin: 'cockpit', key: 'tasksOpen' } as const, false)
-const agents = atom({ plugin: 'cockpit', key: 'agents' } as const, [] as readonly AgentRow[])
-const agentScroll = atom({ plugin: 'cockpit', key: 'agentScroll' } as const, 0)
-const agentDir = atom({ plugin: 'cockpit', key: 'agentDir' } as const, '')
-const sessionId = atom({ plugin: 'cockpit', key: 'sessionId' } as const, '')
-const runs = atom({ plugin: 'cockpit', key: 'runs' } as const, {} as Readonly<Record<string, string>>)
-const skills = atom({ plugin: 'cockpit', key: 'skills' } as const, [] as readonly string[])
-const plugins = atom({ plugin: 'cockpit', key: 'plugins' } as const, [] as readonly string[])
-const showSkills = atom({ plugin: 'cockpit', key: 'showSkills' } as const, false)
+const frame = atom({ plugin: 'cli-dashboard', key: 'frame' } as const, 0)
+const home = atom({ plugin: 'cli-dashboard', key: 'home' } as const, '')
+const configDir = atom({ plugin: 'cli-dashboard', key: 'configDir' } as const, '')
+const cwd = atom({ plugin: 'cli-dashboard', key: 'cwd' } as const, '')
+const usage = atom({ plugin: 'cli-dashboard', key: 'usage' } as const, null as Usage | null)
+const model = atom({ plugin: 'cli-dashboard', key: 'model' } as const, '')
+const effort = atom({ plugin: 'cli-dashboard', key: 'effort' } as const, null as string | null)
+const git = atom({ plugin: 'cli-dashboard', key: 'git' } as const, null as { branch: string; dirty: number } | null)
+const sessionName = atom({ plugin: 'cli-dashboard', key: 'sessionName' } as const, null as string | null)
+const sessionTokens = atom({ plugin: 'cli-dashboard', key: 'sessionTokens' } as const, 0)
+const lastResponseAt = atom({ plugin: 'cli-dashboard', key: 'lastResponseAt' } as const, null as number | null)
+const tasks = atom({ plugin: 'cli-dashboard', key: 'tasks' } as const, [] as readonly Task[])
+const tasksOpen = atom({ plugin: 'cli-dashboard', key: 'tasksOpen' } as const, false)
+const agents = atom({ plugin: 'cli-dashboard', key: 'agents' } as const, [] as readonly AgentRow[])
+const agentScroll = atom({ plugin: 'cli-dashboard', key: 'agentScroll' } as const, 0)
+const agentDir = atom({ plugin: 'cli-dashboard', key: 'agentDir' } as const, '')
+const sessionId = atom({ plugin: 'cli-dashboard', key: 'sessionId' } as const, '')
+const runs = atom({ plugin: 'cli-dashboard', key: 'runs' } as const, {} as Readonly<Record<string, string>>)
+const skills = atom({ plugin: 'cli-dashboard', key: 'skills' } as const, [] as readonly string[])
+const plugins = atom({ plugin: 'cli-dashboard', key: 'plugins' } as const, [] as readonly string[])
+const showSkills = atom({ plugin: 'cli-dashboard', key: 'showSkills' } as const, false)
 
 const HINT_MARGIN = 4
 
@@ -151,7 +151,7 @@ export const register: Register = on => {
   let poll: Timer | undefined
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'cockpit-skills', description: 'Toggle the skills/plugins row in the cockpit panel' })
+    await $.command.register({ name: 'cli-dashboard-skills', description: 'Toggle the skills/plugins row in the cli-dashboard panel' })
     tick ??= $.clock.every(120, () => update($, frame, n => n + 1))
     poll ??= $.clock.every(2000, () => refreshAgentTokens($))
     try {
@@ -172,9 +172,9 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'cockpit-skills' }, async $ => {
+  on('command.run', { command: 'cli-dashboard-skills' }, async $ => {
     await update($, showSkills, v => !v)
-    return { text: 'Toggled the cockpit skills/plugins row.' }
+    return { text: 'Toggled the cli-dashboard skills/plugins row.' }
   })
 
   on('session.measure', async ($, e, next) => {

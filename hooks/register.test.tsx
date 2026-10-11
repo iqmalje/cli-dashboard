@@ -21,7 +21,7 @@ const setup = async ($: Engine, on: On) => {
     const { Text } = $t.ui.resolve(e)
     return <Text>engine</Text>
   })
-  return $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS })
+  return $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'PromptHint', props: PROPS })
 }
 
 const drawn = async (ui: { drawn: () => Promise<RenderElement> }) => text(await ui.drawn())
@@ -63,7 +63,7 @@ test('the Panel is drawn 4 columns narrower than the terminal', async ($, on) =>
     const { Text } = $t.ui.resolve(e)
     return <Text>engine</Text>
   })
-  const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 100, rows: 40 } as never })
+  const ui = await $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 100, rows: 40 } as never })
   const out = await drawn(ui)
   const top = out.slice(out.indexOf('╭'), out.indexOf('╮') + 1)
   expect([...top].length).toBe(96)
@@ -77,7 +77,7 @@ test('down arrow on the agents rows scrolls the 5-row window', async ($, on) => 
     const { Text } = $t.ui.resolve(e)
     return <Text>engine</Text>
   })
-  const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 120, rows: 40 } as never })
+  const ui = await $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 120, rows: 40 } as never })
   for (let i = 0; i < 7; i++) await $.agent.spawn({ tool_use_id: `t${i}`, description: `job ${i}`, subagentType: 'Explore', name: `A${i}` } as never)
   const before = await drawnAgents(ui)
   expect(before).toContain('A4')
@@ -113,7 +113,7 @@ test("the main loop's turn.step sets the top row's effort", async ($, on) => {
     const { Text } = $t.ui.resolve(e)
     return <Text>engine</Text>
   })
-  const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
+  const ui = await $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
   const step = $.turn.step({ turnId: 'u1', index: 0, model: 'claude-opus-5-5', effort: 'xhigh', messageCount: 1 } as never)
   for await (const _ of step);
   expect(await drawn(ui)).toContain('· xhigh')
@@ -130,7 +130,7 @@ const wide = async ($: Engine, on: On) => {
     const { Text } = $t.ui.resolve(e)
     return <Text>engine</Text>
   })
-  return $.ui.mount({ plugin: 'cockpit', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
+  return $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
 }
 const mainStep = async ($: Engine, model = 'claude-opus-5-5') => {
   for await (const _ of $.turn.step({ turnId: 'u1', index: 0, model, messageCount: 1 } as never));

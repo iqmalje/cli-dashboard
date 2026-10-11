@@ -1,1 +1,1 @@
-{ "name": "cockpit", "version": "0.1.0", "description": "Session panel above the prompt: context, limits, agents and tasks", "types": "./types/index.d.ts" }
+{ "name": "cli-dashboard", "version": "0.1.0", "description": "Session panel under the prompt: context, limits, agents and tasks", "types": "./types/index.d.ts" }

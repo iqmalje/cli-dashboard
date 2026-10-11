@@ -10,9 +10,9 @@ const text = (s: Section) => s.rows.map(r => r.map(c => c.parts.map(p => p.text)
 
 const base: FixedData = {
   now: 0,
-  cwd: '/Users/a/Documents/cockpit',
+  cwd: '/Users/a/Documents/cli-dashboard',
   home: '/Users/a',
-  sessionName: 'cockpit-1a',
+  sessionName: 'cli-dashboard-1a',
   git: { branch: 'main', dirty: 3 },
   model: 'claude-opus-5-5',
   effort: 'high',
@@ -23,8 +23,8 @@ const base: FixedData = {
 
 test('fixedRows: row 1 holds where/who, row 2 holds how full', () => {
   const [r1, r2] = fixedRows(base, new Set())
-  expect(text(r1!)).toContain('~/Documents/cockpit')
-  expect(text(r1!)).toContain('cockpit-1a')
+  expect(text(r1!)).toContain('~/Documents/cli-dashboard')
+  expect(text(r1!)).toContain('cli-dashboard-1a')
   expect(text(r1!)).toContain('main')
   expect(text(r1!)).toContain('opus 5.5')
   expect(text(r1!)).toContain('42%')
@@ -44,7 +44,7 @@ test('fixedRows honours drops: short dir, 7d, session name, dirty, cache', () =>
   const deep = { ...base, cwd: '/Users/a/code/work-repos/api-relay' }
   const [r1, r2] = fixedRows(deep, new Set(['dirShort', 'sevenDay', 'sessionName', 'dirty', 'cache'] as const))
   expect(text(r1!)).not.toContain('18%')
-  expect(text(r1!)).not.toContain('cockpit-1a')
+  expect(text(r1!)).not.toContain('cli-dashboard-1a')
   expect(text(r1!)).not.toContain('•3')
   expect(text(r1!)).toContain('…/work-repos/api-relay')
   expect(text(r2!)).not.toContain('3:41')
@@ -96,9 +96,9 @@ test('sessionNameFrom skips malformed files', () => {
   const files = [
     { name: '1.json', text: '{"sessionId":"x","na' },
     { name: '2.json', text: '{"sessionId":"other","name":"nope"}' },
-    { name: '3.json', text: '{"sessionId":"me","name":"cockpit-1a"}' },
+    { name: '3.json', text: '{"sessionId":"me","name":"cli-dashboard-1a"}' },
   ]
-  expect(sessionNameFrom(files, 'me')).toBe('cockpit-1a')
+  expect(sessionNameFrom(files, 'me')).toBe('cli-dashboard-1a')
   expect(sessionNameFrom(files.slice(0, 2), 'me')).toBe(null)
 })
 

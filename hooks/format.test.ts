@@ -24,7 +24,7 @@ test('fmtModel: drops the claude- prefix and the context suffix', () => {
 })
 
 test('shortenHome', () => {
-  expect(shortenHome('/Users/a/Documents/cockpit', '/Users/a')).toBe('~/Documents/cockpit')
+  expect(shortenHome('/Users/a/Documents/cli-dashboard', '/Users/a')).toBe('~/Documents/cli-dashboard')
   expect(shortenHome('/Users/a', '/Users/a')).toBe('~')
   expect(shortenHome('/Users/ab/x', '/Users/a')).toBe('/Users/ab/x')
 })
@@ -34,7 +34,7 @@ test('shortenHome', () => {
 test('shortDir keeps the last two folders', () => {
   expect(shortDir('~/orca/workspaces/dumb-meter/creating-own-YAS')).toBe('…/dumb-meter/creating-own-YAS')
   expect(shortDir('~/Documents/work-repos/api-relay')).toBe('…/work-repos/api-relay')
-  expect(shortDir('~/Documents/cockpit')).toBe('~/Documents/cockpit')
+  expect(shortDir('~/Documents/cli-dashboard')).toBe('~/Documents/cli-dashboard')
   expect(shortDir('/opt/x')).toBe('/opt/x')
 })
 
