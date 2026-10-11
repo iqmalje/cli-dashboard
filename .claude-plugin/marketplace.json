@@ -1,0 +1,11 @@
+{
+  "name": "cli-dashboard",
+  "owner": { "name": "Iqmal Aizat" },
+  "plugins": [
+    {
+      "name": "cli-dashboard",
+      "source": "./",
+      "description": "Live session dashboard under the Claude Code prompt: context, limits, agents and tasks"
+    }
+  ]
+}

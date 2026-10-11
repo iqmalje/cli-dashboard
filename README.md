@@ -57,59 +57,58 @@ The panel grows and shrinks with what is going on and how wide your terminal is.
 
 When the top row runs out of room, the panel gives things up in a fixed order: it shortens the directory, then hides the 7-day limit, the session name, the dirty count and the cache countdown. It then takes back anything that fits again, so a long session name never costs you the 7-day limit. Anything still too long is cut with `…`.
 
-## Requirements
-
-- **Claude Code 2.1.295 or later**, with function-hook mods. The mod API is early access and may change between releases.
-- **A Nerd Font** in your terminal (for example JetBrains Mono Nerd Font). Without one, the icons show as boxes.
-- **git** on your `PATH`, for the branch cell.
-
 ## Installation
 
-**1. Clone the repository**
+You need **Claude Code 2.1.295 or later** (`claude --version`; run `claude update` if it is older).
+
+**1. Install the plugin**
 
 ```sh
-git clone https://github.com/iqmalje/cli-dashboard.git ~/Documents/cli-dashboard
+claude plugin marketplace add iqmalje/cli-dashboard
+claude plugin install cli-dashboard@cli-dashboard
 ```
 
-Any folder works. The steps below assume `~/Documents/cli-dashboard`.
-
-**2. Point Claude Code at the folder**
-
-Add the folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`:
-
-```json
-{
-  "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/Documents/cli-dashboard"
-  }
-}
-```
-
-If you already load other mods, separate the folders with a colon:
-
-```json
-"CLAUDE_CODE_PLUGIN_DIRS": "~/Documents/other-mod:~/Documents/cli-dashboard"
-```
-
-**3. Start a new Claude Code session**
+**2. Start a new session**
 
 ```sh
 claude
 ```
 
-The panel appears under the prompt. Sessions that were already open do not load it; restart them.
+That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them.
+
+### Icons look like boxes?
+
+The panel uses [Nerd Font](https://www.nerdfonts.com/font-downloads) icons. Install one and select it in your terminal's font settings. On macOS with Homebrew:
+
+```sh
+brew install --cask font-fira-code-nerd-font
+```
+
+Then choose **FiraCode Nerd Font** in your terminal (for example iTerm2: Settings → Profiles → Text → Font).
 
 ### Updating
 
 ```sh
-git -C ~/Documents/cli-dashboard pull
+claude plugin update cli-dashboard@cli-dashboard
 ```
 
-Open sessions reload the mod's code by themselves when its files change.
+Restart your sessions to load the new version.
 
 ### Uninstalling
 
-Remove the folder from `CLAUDE_CODE_PLUGIN_DIRS`, restart your sessions, then delete the folder.
+```sh
+claude plugin uninstall cli-dashboard@cli-dashboard
+claude plugin marketplace remove cli-dashboard
+```
+
+### Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| No panel under the prompt | Run `claude plugin list` and check that `cli-dashboard@cli-dashboard` says **enabled**, then start a new session. |
+| No panel, and the plugin is enabled | Check `claude --version` is 2.1.295 or later. Older versions don't run mods. |
+| Boxes instead of icons | Install a Nerd Font and select it in your terminal (see above). |
+| No branch cell | The panel only shows a branch inside a git repository, with `git` on your `PATH`. |
 
 ## Using it
 
@@ -122,6 +121,24 @@ Remove the folder from `CLAUDE_CODE_PLUGIN_DIRS`, restart your sessions, then de
 Finished agents stay on the panel with a ✓ until your next prompt, so you can see how they ended.
 
 ## Development
+
+To work on the mod, load it from a clone instead of the marketplace (uninstall the marketplace copy first, or the panel draws twice):
+
+```sh
+git clone https://github.com/iqmalje/cli-dashboard.git ~/Documents/cli-dashboard
+```
+
+Then add the folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claude/settings.json`. Separate several folders with a colon:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/Documents/cli-dashboard"
+  }
+}
+```
+
+Open sessions reload the mod's code by themselves when its files change.
 
 The code is plain TypeScript: pure functions over immutable data, with the I/O in one hooks module.
 
