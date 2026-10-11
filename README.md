@@ -19,6 +19,22 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 
 > Inspired by [**YAS! (Yet Another Statusline)**](https://github.com/tmck-code/yet-another-statusline) by tmck-code. Go give it a star.
 
+## Contents
+
+- [What it shows](#what-it-shows)
+  - [The Dumb Meter](#the-dumb-meter)
+  - [Full, partial and shrunken](#full-partial-and-shrunken)
+- [Installation](#installation)
+  - [Fonts](#fonts)
+  - [Updating](#updating)
+  - [Uninstalling](#uninstalling)
+  - [Troubleshooting](#troubleshooting)
+- [Using it](#using-it)
+- [Development](#development)
+- [Known limits](#known-limits)
+- [Roadmap](#roadmap)
+- [Credits](#credits)
+- [License](#license)
 
 ## What it shows
 
@@ -43,6 +59,10 @@ The meter measures context tokens against a **soft limit**: 800k tokens, or the 
 | 50–70% | **Foggy** |
 | 70–90% | **Cooked** |
 | 90% and over | **Dumb** |
+
+<p align="center"><img src="docs/images/meter.png" alt="The Dumb Meter in each of its five states, from Smart to Dumb, with the bar's gradient growing warmer as it fills" width="720"></p>
+
+The gradient runs from Smart's green to the colour of the current state and flows along the bar. While the meter is **Smart**, both ends are the same green, so the bar looks still. The flow shows from **Coasting** on, and grows stronger as the meter heads for **Dumb**.
 
 ### Full, partial and shrunken
 
@@ -81,15 +101,40 @@ claude
 
 That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them.
 
-### Icons look like boxes?
+### Fonts
 
-The panel uses [Nerd Font](https://www.nerdfonts.com/font-downloads) icons. Install one and select it in your terminal's font settings. On macOS with Homebrew:
+The panel needs two kinds of glyphs from your terminal font:
+
+- **Icons**: [Nerd Font](https://www.nerdfonts.com/font-downloads) icons for every cell. Without them each icon is a box or a `◆`.
+- **The meter bar**: `U+1FB0B`, from Unicode's *Symbols for Legacy Computing* block. Without it the bar is a row of `�`.
+
+Not every Nerd Font has both, and not every terminal falls back to another font for a missing glyph. Windows Terminal, for one, does not reliably fall back.
+
+| Font | Icons | Meter bar |
+| --- | --- | --- |
+| **Cascadia Mono NF** / **Cascadia Code NF** | ✓ | ✓ |
+| FiraCode Nerd Font | ✓ | only through your terminal's font fallback |
+| JetBrainsMono Nerd Font | ✓ | ✗ in Windows Terminal |
+| Cascadia Mono (Windows Terminal's default) | ✗ | ✓ |
+
+**Cascadia Mono NF** is the safest pick. It is Microsoft's own Nerd Font build of Cascadia, and it ships in the zip on the [Cascadia Code releases page](https://github.com/microsoft/cascadia-code/releases).
+
+**macOS**: install a Nerd Font and select it in your terminal (for example iTerm2: Settings → Profiles → Text → Font).
 
 ```sh
 brew install --cask font-fira-code-nerd-font
 ```
 
-Then choose **FiraCode Nerd Font** in your terminal (for example iTerm2: Settings → Profiles → Text → Font).
+**Windows (including WSL)**: the font goes on **Windows**, not inside WSL, because Windows Terminal draws the text.
+
+1. Download the zip from the [Cascadia Code releases page](https://github.com/microsoft/cascadia-code/releases), open `ttf/`, right-click `CascadiaMonoNF.ttf` and choose **Install**.
+2. In Windows Terminal, open **Settings → Defaults → Appearance → Font face** and pick **Cascadia Mono NF**. A profile's own font overrides the default, so check your WSL profile too. In `settings.json` the same setting is:
+
+   ```json
+   "profiles": { "defaults": { "font": { "face": "Cascadia Mono NF" } } }
+   ```
+
+3. Close every Windows Terminal window, then start a new `claude` session.
 
 ### Updating
 
@@ -113,7 +158,9 @@ claude plugin marketplace remove cli-dashboard
 | --- | --- |
 | No panel under the prompt | Run `claude plugin list` and check that `cli-dashboard@cli-dashboard` says **enabled**, then start a new session. |
 | No panel, and the plugin is enabled | Check `claude --version` is 2.1.295 or later. Older versions don't run mods. |
-| Boxes instead of icons | Install a Nerd Font and select it in your terminal (see above). |
+| Boxes or `◆` instead of icons | Your font has no Nerd Font icons. Install one and select it in your terminal (see [Fonts](#fonts)). |
+| `�` along the meter bar | Your font has no `U+1FB0B`. Switch to **Cascadia Mono NF** (see [Fonts](#fonts)). |
+| The meter bar doesn't flow | Expected while the meter is **Smart**: the gradient is one colour until **Coasting** (see [The Dumb Meter](#the-dumb-meter)). |
 | No branch cell | The panel only shows a branch inside a git repository, with `git` on your `PATH`. |
 
 ## Using it
@@ -179,13 +226,13 @@ npx -p typescript tsc --noEmit -p .
 
 `tsconfig.json` extends `.claude-plugin/types/tsconfig.json`. Claude Code writes that folder (the engine's API types) the first time it loads the mod, so start one session with the mod installed before you type-check. It is git-ignored.
 
-Regenerate the README screenshots after a visual change (needs Google Chrome and FiraCode Nerd Font):
+Regenerate the README screenshots after a visual change (needs [Bun](https://bun.sh), Google Chrome and FiraCode Nerd Font):
 
 ```sh
 bun tools/screenshots/render.ts
 ```
 
-The script draws the panel with the mod's own code at fixed widths and writes `docs/images/*.png`. The data in it is made up.
+The script draws the panel with the mod's own code at fixed widths and writes `docs/images/*.png`: the full, partial and shrunken panels, and the meter in each state. The data in it is made up. The paths default to macOS. Set `CHROME` to the Chrome binary and `FONTS` to the folder holding `FiraCodeNerdFont-Regular.ttf` and `-Bold.ttf` to render elsewhere.
 
 ### A note on events
 
