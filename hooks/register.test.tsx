@@ -284,6 +284,8 @@ test('pressing a choice picks it and advances', async ($, on) => {
 
 test('pressing a choice on the last step saves the picks and the Panel then draws with them', async ($, on) => {
   const runs: Ran = []
+  const toasts: string[] = []
+  on('ui.toast', (_, e) => (toasts.push((e as { text: string }).text), { value: undefined }) as never)
   const { panel, wizard } = await pane($, on, runs)
   await wizard.press({ key: 'opt-theme-rainbow' })
   await wizard.press({ key: 'opt-icons-plain' })
@@ -293,6 +295,7 @@ test('pressing a choice on the last step saves the picks and the Panel then draw
   expect(saved(runs)[0]!.argv).toEqual(['claude', 'plugin', 'configure', 'cli-dashboard@mine', '--values-stdin'])
   expect(JSON.parse(saved(runs)[0]!.stdin!)).toEqual({ theme: 'rainbow', icons: 'plain', animation: 'full', speed: '2x' })
   expect(await drawn(panel)).toContain('✱')
+  expect(toasts).toEqual(['cli-dashboard: saved rainbow · plain icons · full · 2x'])
 })
 
 test('animation off makes the total 3 and skips speed', async ($, on) => {

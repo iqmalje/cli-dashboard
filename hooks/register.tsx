@@ -199,7 +199,7 @@ const save = async ($: EngineInterface, picks: Picks) => {
   try {
     const enabled = ((await $.settings.read()).enabledPlugins ?? {}) as Record<string, unknown>
     const r = await $.process.run(configureArgv(enabled, $.plugin.root), { stdin: JSON.stringify(picks) })
-    if (r.exitCode === 0) return
+    if (r.exitCode === 0) return $.ui.toast(`cli-dashboard: saved ${picks.theme} · ${picks.icons} icons · ${picks.animation} · ${picks.speed}`)
   } catch {
     // fall through to the toast
   }
