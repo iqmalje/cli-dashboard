@@ -63,7 +63,7 @@ Then start a new session:
 claude
 ```
 
-That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them. Icons look like boxes? You need a Nerd Font (see [Fonts](#fonts)).
+That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them. Icons look like boxes? Install a Nerd Font (see [Fonts](#fonts)) or pick `plain` icons with `/cli-dashboard-setup`.
 
 ## See it in action
 
@@ -147,7 +147,7 @@ The agents, tasks and skills sections only appear while they have something to s
 
 The panel needs two kinds of glyphs from your terminal font:
 
-- **Icons**: [Nerd Font](https://www.nerdfonts.com/font-downloads) icons for every cell. Without them each icon is a box or a `◆`.
+- **Icons**: [Nerd Font](https://www.nerdfonts.com/font-downloads) icons for every cell. Without them each icon is a box or a `◆`; or pick `plain` icons with `/cli-dashboard-setup`.
 - **The meter bar**: `U+1FB0B`, from Unicode's *Symbols for Legacy Computing* block. Without it the bar is a row of `�`.
 
 Not every Nerd Font has both, and not every terminal falls back to another font for a missing glyph. Windows Terminal, for one, does not reliably fall back.
@@ -185,7 +185,7 @@ Run `/cli-dashboard-setup` to pick the theme, icons, animation and speed one que
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `softLimit` | Context tokens the Dumb Meter treats as full. Capped at the model's context window. | Per model (see [How the soft limit is chosen](#how-the-soft-limit-is-chosen)) |
-| `theme` | Colour palette: `pastel` (recommended), `rainbow`, `mono`, `light` or `high-contrast`. | `pastel` |
+| `theme` | Colour palette: `pastel` (recommended), `rainbow`, `mono` (one hue; hides the burn-rate colours), `light` or `high-contrast`. | `pastel` |
 | `icons` | `nerd` needs a Nerd Font; `plain` uses single-width Unicode symbols any terminal draws. | `nerd` |
 | `animation` | `full` flows the gradient, cycles hues and spins; `calm` keeps only the spinner moving; `off` draws a static panel. | `full` |
 | `speed` | How fast the gradient and hue cycling move: `1x`, `0.5x` or `2x`. | `1x` |
@@ -237,7 +237,7 @@ claude plugin marketplace remove cli-dashboard
 | --- | --- |
 | No panel under the prompt | Run `claude plugin list` and check that `cli-dashboard@cli-dashboard` says **enabled**, then start a new session. |
 | No panel, and the plugin is enabled | Check `claude --version` is 2.1.295 or later. Older versions don't run mods. |
-| Boxes or `◆` instead of icons | Your font has no Nerd Font icons. Install one and select it in your terminal (see [Fonts](#fonts)). |
+| Boxes or `◆` instead of icons | Your font has no Nerd Font icons. Install one and select it in your terminal (see [Fonts](#fonts)), or pick `plain` icons with `/cli-dashboard-setup`. |
 | `�` along the meter bar | Your font has no `U+1FB0B`. Switch to **Cascadia Mono NF** (see [Fonts](#fonts)). |
 | The meter bar doesn't flow | Expected while the meter is **Smart**: the gradient is one colour until **Coasting** (see [The Dumb Meter](#the-dumb-meter)). |
 | No branch cell | The panel only shows a branch inside a git repository, with `git` on your `PATH`. |

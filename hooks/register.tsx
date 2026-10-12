@@ -155,6 +155,9 @@ async function refreshSession($: EngineInterface) {
   await refreshSessionName($)
 }
 
+// ◂/▸ only take the ring; the ui.focus hook does the changing, so a click is not counted twice
+const noop = () => {}
+
 const lineText = (Text: any, l: Line) => (
   <Text wrap="truncate-end">
     {l.segs.map(s => (
@@ -171,7 +174,7 @@ const fixedFit = (data: FixedData, W: number, look: Look) => {
   return fixedRows(data, planDrops(need, W), look)
 }
 
-// picks saved this session win over the options until the module reloads
+// picks saved this session win over the options; a reload (session.start) drops them so a later configure shows
 const picksNow = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => (await read($, chosen)) ?? picksFrom(options)
 
 let tick: Timer | undefined
@@ -257,6 +260,7 @@ export const register: Register = (on, options) => {
   let poll: Timer | undefined
 
   on('session.start', async ($, e, next) => {
+    await update($, chosen, () => null)
     try {
       const seen = await $.store.get('setupSeen')
       await update($, setupSeen, () => seen === true)
@@ -299,7 +303,12 @@ export const register: Register = (on, options) => {
     const picks = await picksNow($, options)
     await update($, setup, () => ({ step: 0, picks }))
     await syncTick($, options)
-    await $.ui.open({ id: 'setup', title: 'cli-dashboard setup', focus: true, closeOnEscape: true, rows: 14 })
+    try {
+      await $.ui.open({ id: 'setup', title: 'cli-dashboard setup', focus: true, closeOnEscape: true, rows: 14 })
+    } catch {
+      await closeWizard($, options)
+      return { text: 'Could not open the cli-dashboard setup.' }
+    }
     return { text: 'Opened the cli-dashboard setup.' }
   })
 
@@ -500,17 +509,17 @@ export const register: Register = (on, options) => {
         <Box>
           <Text bold>{k}</Text>
           <Text>  </Text>
-          <Button key="prev" plain onPress={change(-1)}>
+          {/* draw order is the ring's order: ← lands on ◂ (-1), → on ▸ (+1), the ui.focus hook keeps the ring on next */}
+          <Button key="prev" plain onPress={noop}>
             <Text>◂</Text>
           </Button>
-          <Text> {value} </Text>
-          <Button key="more" plain onPress={change(1)}>
+          <Button key="next" plain autoFocus onPress={next}>
+            <Text bold> {value} · {last ? 'save' : 'next'} </Text>
+          </Button>
+          <Button key="more" plain onPress={noop}>
             <Text>▸</Text>
           </Button>
-          <Text dimColor>{value === CHOICES[k][0] && k === 'theme' ? ' (recommended)' : ''}  {s.step + 1}/4  ←/→ change · enter next · esc cancel </Text>
-          <Button key="next" plain autoFocus onPress={next}>
-            <Text bold>{last ? '[ save ]' : '[ next ]'}</Text>
-          </Button>
+          <Text dimColor>{value === CHOICES[k][0] && k === 'theme' ? ' (recommended)' : ''}  {s.step + 1}/{s.picks.animation === 'off' ? 3 : 4}  ←/→ change · enter next · esc cancel </Text>
           <Button key="cancel" plain onPress={() => void cancel($, options)}>
             <Text dimColor> [ cancel ]</Text>
           </Button>

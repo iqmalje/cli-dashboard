@@ -13,7 +13,7 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "Colour palette. pastel is recommended; rainbow is more saturated, mono uses one hue, light suits light terminals, high-contrast maximises contrast.",
+      "description": "Colour palette. pastel is recommended; rainbow is more saturated, mono uses one hue and hides the burn-rate colours, light suits light terminals, high-contrast maximises contrast.",
       "options": [
         "pastel",
         "rainbow",

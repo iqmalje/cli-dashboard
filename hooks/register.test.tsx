@@ -209,6 +209,12 @@ test('the softLimit option sets the meter', { options: { softLimit: 400_000 } },
 
 // ---- /cli-dashboard-setup: a focused pane with one question and a live preview ----
 
+// the ring stepping onto a neighbour, as the arrows do: the engine's ui.focus shape (the kit passes the argument on as the event)
+const focus = async ($: Engine, wizard: { redraw: () => Promise<void> }, element: string) => {
+  await $.ui.focus({ component: 'Pane', requestId: 'setup', element, origin: { kind: 'person' } } as never)
+  await wizard.redraw()
+}
+
 const pane = async ($: Engine, on: On, runs: { argv: readonly string[]; stdin?: string }[] = [], store: Record<string, unknown> = {}) => {
   mock.clock(on)
   mock.store(on, store)
@@ -244,7 +250,7 @@ test('the command opens the setup pane on the first question', async ($, on) => 
 test('the right arrow button changes the preview look', async ($, on) => {
   const { wizard } = await pane($, on)
   const before = JSON.stringify(await wizard.drawn())
-  await wizard.press({ key: 'more' })
+  await focus($, wizard, 'more')
   expect(await drawn(wizard)).toContain('rainbow')
   expect(JSON.stringify(await wizard.drawn())).not.toBe(before)
 })
@@ -252,9 +258,9 @@ test('the right arrow button changes the preview look', async ($, on) => {
 test('enter through every step saves the picks and the Panel then draws with them', async ($, on) => {
   const runs: { argv: readonly string[]; stdin?: string }[] = []
   const { panel, wizard } = await pane($, on, runs)
-  await wizard.press({ key: 'more' }) // theme: rainbow
+  await focus($, wizard, 'more') // theme: rainbow
   await wizard.press({ key: 'next' })
-  await wizard.press({ key: 'more' }) // icons: plain
+  await focus($, wizard, 'more') // icons: plain
   await wizard.press({ key: 'next' })
   await wizard.press({ key: 'next' }) // animation: full
   await wizard.press({ key: 'next' }) // speed: 1x, saves
@@ -270,19 +276,51 @@ test('animation off skips the speed step', async ($, on) => {
   const { wizard } = await pane($, on, runs)
   await wizard.press({ key: 'next' })
   await wizard.press({ key: 'next' })
-  await wizard.press({ key: 'more' }) // full -> calm
-  await wizard.press({ key: 'more' }) // calm -> off
+  await focus($, wizard, 'more') // full -> calm
+  await focus($, wizard, 'more') // calm -> off
   await wizard.press({ key: 'next' })
   expect(JSON.parse(runs.find(r => r.stdin)!.stdin!).animation).toBe('off')
 })
 
-// The ring landing on ◂/▸ (the arrows) changes the value and keeps the ring on next
-test('an arrow landing on the right button changes the value without moving the ring', async ($, on) => {
+// Arrows walk the buttons in draw order: ◂, next, ▸, cancel. From next, ← lands on ◂ and → on ▸, never on cancel.
+test('the arrows change the value in both directions and → cannot reach cancel', async ($, on) => {
   const { wizard } = await pane($, on)
-  // the kit passes $.ui.focus's argument on as the event: give it the engine's shape (component, element, origin)
-  await $.ui.focus({ component: 'Pane', requestId: 'setup', element: 'more', origin: { kind: 'person' } } as never)
-  await wizard.redraw()
-  expect(await drawn(wizard)).toContain('rainbow')
+  const out = await drawn(wizard)
+  expect(out.indexOf('◂')).toBeLessThan(out.indexOf('pastel · next'))
+  expect(out.indexOf('pastel · next')).toBeLessThan(out.indexOf('▸'))
+  expect(out.indexOf('▸')).toBeLessThan(out.indexOf('cancel'))
+  await focus($, wizard, 'more')
+  expect(await drawn(wizard)).toContain('rainbow · next')
+  await focus($, wizard, 'prev')
+  await focus($, wizard, 'prev')
+  expect(await drawn(wizard)).toContain('high-contrast · next')
+  expect(await drawn(wizard)).toContain('1/4')
+})
+
+test('a click on ▸ changes the value once', async ($, on) => {
+  const { wizard } = await pane($, on)
+  await focus($, wizard, 'more')
+  await wizard.press({ key: 'more' })
+  expect(await drawn(wizard)).toContain('rainbow · next')
+})
+
+test('the step total is 3 once animation is off', async ($, on) => {
+  const { wizard } = await pane($, on)
+  await wizard.press({ key: 'next' })
+  await wizard.press({ key: 'next' })
+  await focus($, wizard, 'prev') // full -> off
+  expect(await drawn(wizard)).toContain('3/3')
+})
+
+test('a session.start reload drops the picks saved this session', async ($, on) => {
+  const { panel, wizard } = await pane($, on)
+  await focus($, wizard, 'prev')
+  await wizard.press({ key: 'next' })
+  await focus($, wizard, 'more') // icons: plain
+  for (const _ of [0, 1, 2]) await wizard.press({ key: 'next' })
+  expect(await drawn(panel)).toContain('✱')
+  await $.session.start({ cwd: '/work' } as never)
+  expect(await drawn(panel)).not.toContain('✱')
 })
 
 // The kit cannot raise a person's Esc (ui.close with origin person); the cancel Button runs the same closeWizard
@@ -290,7 +328,7 @@ test('cancelling mid-way saves nothing, leaves the Panel as it was and marks the
   const runs: { argv: readonly string[]; stdin?: string }[] = []
   const { panel, wizard } = await pane($, on, runs)
   await wizard.press({ key: 'next' })
-  await wizard.press({ key: 'more' }) // icons: plain, in the draft only
+  await focus($, wizard, 'more') // icons: plain, in the draft only
   await wizard.press({ key: 'cancel' })
   expect(runs.filter(r => r.stdin)).toHaveLength(0)
   const out = await drawn(panel)
