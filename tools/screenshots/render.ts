@@ -11,6 +11,7 @@ import type { Drop, Line, Section } from '../../hooks/frame'
 import { agentSections, fixedRows, skillsSection, taskSection } from '../../hooks/rows'
 import type { FixedData } from '../../hooks/rows'
 import { lookOf, picksFrom } from '../../hooks/look'
+import { MIN, sampleAgents, sampleTasks } from '../../hooks/sample'
 
 const look = lookOf(picksFrom({}))
 
@@ -20,7 +21,6 @@ const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/M
 const FONTS = process.env.FONTS ?? join(process.env.HOME ?? '', 'Library/Fonts')
 const CELL_W = 9 // px per terminal column at font-size 15px
 const LINE_H = 20
-const MIN = 60_000
 const NOW = 1_800_000_000_000
 
 const data: FixedData = {
@@ -42,18 +42,8 @@ const data: FixedData = {
   softLimit: 800_000,
 }
 
-const agents: AgentRow[] = [
-  { id: 'a1', name: 'general-purpose', model: 'claude-opus-5-5', effort: 'medium', description: 'Final review: webhook retry plan', startedAt: NOW - 4.6 * MIN, tokens: 3_900_000 },
-  { id: 'a2', name: 'Explore', model: 'claude-sonnet-5-5', effort: 'low', description: 'Find every caller of signPayload', startedAt: NOW - 1.2 * MIN, tokens: 410_000 },
-  { id: 'a3', name: 'general-purpose', model: 'claude-opus-5-5', effort: 'medium', description: 'Review Task A6', startedAt: NOW - 6 * MIN, endedAt: NOW - 3.8 * MIN, tokens: 1_600_000 },
-]
-
-const tasks: Task[] = [
-  { id: '1', subject: 'Add retry backoff to the webhook sender', status: 'completed', startedAt: NOW - 40 * MIN, endedAt: NOW - 25 * MIN },
-  { id: '2', subject: 'Cover the backoff with tests', status: 'completed', startedAt: NOW - 25 * MIN, endedAt: NOW - 12 * MIN },
-  { id: '3', subject: 'Final whole-branch review', status: 'in_progress', startedAt: NOW - 5 * MIN },
-  { id: '4', subject: 'Open the pull request', status: 'pending' },
-]
+const agents = sampleAgents(NOW)
+const tasks = sampleTasks(NOW)
 
 type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; skills: boolean; notes: boolean; lines?: (W: number) => Line[] }
 

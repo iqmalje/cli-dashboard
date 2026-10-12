@@ -26,7 +26,7 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 - **Two commands to install**: no cloning, no config files.
 
 > [!NOTE]
-> cli-dashboard is in **alpha**. It ships one look, the author's own: one colour palette and one icon set. Settings to change these are planned (see the [Roadmap](#roadmap)). Expect rough edges, and expect the layout to change between releases.
+> cli-dashboard is in **alpha**. Colour themes, icon sets and animation are choosable (see [Settings](#settings)). Expect rough edges, and expect the layout to change between releases.
 
 ## Contents
 
@@ -116,12 +116,13 @@ The gradient runs from Smart's green to the colour of the current state and flow
 | Expand or collapse the task list | Click the **tasks** row |
 | Scroll the agent rows (5 show at a time) | Click the **agents** rows, then press ↑ / ↓ |
 | Show or hide skills and plugins | Click **skills** in the bottom border, or run `/cli-dashboard-skills` |
+| Pick the theme, icons and animation | Run `/cli-dashboard-setup` |
 
 Finished agents stay on the panel with a ✓ until your next prompt, so you can see how they ended.
 
 ## Roadmap
 
-cli-dashboard is in alpha, and today everything is fixed to one style. Planned:
+cli-dashboard is in alpha. Themes, icons and animation are choosable (see [Settings](#settings)); still planned:
 
 - **Meter states**: rename the five states and move their thresholds.
 - **Sections and cells**: choose which ones show, and in what order.
@@ -178,6 +179,8 @@ brew install --cask font-fira-code-nerd-font
 3. Close every Windows Terminal window, then start a new `claude` session.
 
 ### Settings
+
+Run `/cli-dashboard-setup` to pick the theme, icons, animation and speed one question at a time, with a live preview. The picks are saved to these settings; Esc cancels and saves nothing.
 
 | Setting | What it does | Default |
 | --- | --- | --- |
