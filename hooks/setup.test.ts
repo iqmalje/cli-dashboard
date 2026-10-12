@@ -18,7 +18,9 @@ test('advance ends after speed, or after animation when it is off', () => {
   expect(advance({ step: 2, picks: { ...start.picks, animation: 'off' } })).toBeNull()
 })
 
-test('pluginId finds the marketplace key', () => {
+test('pluginId finds the enabled marketplace key, else the folder-loaded copy', () => {
   expect(pluginId({ 'a@b': true, 'cli-dashboard@mine': true })).toBe('cli-dashboard@mine')
-  expect(pluginId({})).toBe('cli-dashboard')
+  // a disabled marketplace copy is not the one running
+  expect(pluginId({ 'cli-dashboard@mine': false })).toBe('cli-dashboard@inline')
+  expect(pluginId({})).toBe('cli-dashboard@inline')
 })

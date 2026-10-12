@@ -41,5 +41,6 @@ export function advance(s: Setup): Setup | null {
   return s.step >= last ? null : { ...s, step: s.step + 1 }
 }
 
-// the plugin's key in enabledPlugins ("cli-dashboard@<marketplace>"); the bare name when installed another way
-export const pluginId = (enabled: Readonly<Record<string, unknown>>) => Object.keys(enabled).find(k => k.startsWith('cli-dashboard@')) ?? 'cli-dashboard'
+// the enabled marketplace install ("cli-dashboard@<marketplace>"); otherwise this copy was loaded from a folder (--plugin-dir)
+export const pluginId = (enabled: Readonly<Record<string, unknown>>) =>
+  Object.keys(enabled).find(k => k.startsWith('cli-dashboard@') && enabled[k] === true) ?? 'cli-dashboard@inline'
