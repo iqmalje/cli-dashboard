@@ -180,7 +180,7 @@ brew install --cask font-fira-code-nerd-font
 
 ### Settings
 
-Run `/cli-dashboard-setup` to pick the theme, icons, animation and speed one question at a time, with a live preview. The picks are saved to these settings; Esc cancels and saves nothing.
+Run `/cli-dashboard-setup` to pick the theme, icons, animation and speed one question at a time as a list (↑/↓ to choose, enter to pick), with a live preview. The picks are saved to these settings; Esc cancels and saves nothing.
 
 | Setting | What it does | Default |
 | --- | --- | --- |
@@ -188,7 +188,7 @@ Run `/cli-dashboard-setup` to pick the theme, icons, animation and speed one que
 | `theme` | Colour palette: `pastel` (recommended), `rainbow`, `mono` (one hue; hides the burn-rate colours), `light` or `high-contrast`. | `pastel` |
 | `icons` | `nerd` needs a Nerd Font; `plain` uses single-width Unicode symbols any terminal draws. | `nerd` |
 | `animation` | `full` flows the gradient, cycles hues and spins; `calm` keeps only the spinner moving; `off` draws a static panel. | `full` |
-| `speed` | How fast the gradient and hue cycling move: `1x`, `0.5x` or `2x`. | `1x` |
+| `speed` | Colour animation speed: how fast the meter gradient and agent colours shift (the spinner keeps its pace): `1x`, `0.5x` or `2x`. | `1x` |
 
 Set it from a terminal:
 

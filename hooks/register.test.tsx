@@ -209,7 +209,7 @@ test('the softLimit option sets the meter', { options: { softLimit: 400_000 } },
 
 // ---- /cli-dashboard-setup: a focused pane with one question and a live preview ----
 
-// the ring stepping onto a neighbour, as the arrows do: the engine's ui.focus shape (the kit passes the argument on as the event)
+// the ring landing on a choice, as ↑/↓ do: the engine's ui.focus shape (the kit passes the argument on as the event)
 const focus = async ($: Engine, wizard: { redraw: () => Promise<void> }, element: string) => {
   await $.ui.focus({ component: 'Pane', requestId: 'setup', element, origin: { kind: 'person' } } as never)
   await wizard.redraw()
@@ -238,99 +238,93 @@ const pane = async ($: Engine, on: On, runs: { argv: readonly string[]; stdin?: 
   return { panel, wizard }
 }
 
+type Ran = { argv: readonly string[]; stdin?: string }[]
+const saved = (runs: Ran) => runs.filter(r => r.stdin)
+
 test('the command opens the setup pane on the first question', async ($, on) => {
   const { wizard } = await pane($, on)
   const out = await drawn(wizard)
-  expect(out).toContain('theme')
-  expect(out).toContain('pastel')
-  expect(out).toContain('(recommended)')
-  expect(out).toContain('1/4')
+  expect(out).toContain('Theme 1/4')
+  expect(out).toContain("Colours for the panel's icons, values and border.")
+  expect(out).toContain('▸ pastel  soft · recommended')
+  expect(out).toContain('  high-contrast  brightest on dark backgrounds')
+  expect(out).toContain('↑/↓ choose · enter pick · esc cancel')
 })
 
-test('the right arrow button changes the preview look', async ($, on) => {
+test('every question draws its title and description', async ($, on) => {
+  const { wizard } = await pane($, on)
+  const steps = [
+    ['opt-theme-pastel', 'Icons 2/4', 'Nerd Font glyphs, or plain symbols if you see boxes.'],
+    ['opt-icons-nerd', 'Animation 3/4', 'What moves on the panel.'],
+    ['opt-animation-full', 'Colour animation speed 4/4', 'How fast the meter gradient and agent colours shift. The spinner keeps its pace.'],
+  ] as const
+  for (const [key, title, about] of steps) {
+    await wizard.press({ key })
+    const out = await drawn(wizard)
+    expect(out).toContain(title)
+    expect(out).toContain(about)
+  }
+})
+
+test('focusing a choice changes the preview', async ($, on) => {
   const { wizard } = await pane($, on)
   const before = JSON.stringify(await wizard.drawn())
-  await focus($, wizard, 'more')
-  expect(await drawn(wizard)).toContain('rainbow')
+  await focus($, wizard, 'opt-theme-rainbow')
+  expect(await drawn(wizard)).toContain('▸ rainbow')
   expect(JSON.stringify(await wizard.drawn())).not.toBe(before)
 })
 
-test('enter through every step saves the picks and the Panel then draws with them', async ($, on) => {
-  const runs: { argv: readonly string[]; stdin?: string }[] = []
-  const { panel, wizard } = await pane($, on, runs)
-  await focus($, wizard, 'more') // theme: rainbow
-  await wizard.press({ key: 'next' })
-  await focus($, wizard, 'more') // icons: plain
-  await wizard.press({ key: 'next' })
-  await wizard.press({ key: 'next' }) // animation: full
-  await wizard.press({ key: 'next' }) // speed: 1x, saves
-  const saves = runs.filter(r => r.stdin)
-  expect(saves).toHaveLength(1)
-  expect(saves[0]!.argv).toEqual(['claude', 'plugin', 'configure', 'cli-dashboard@mine', '--values-stdin'])
-  expect(JSON.parse(saves[0]!.stdin!)).toEqual({ theme: 'rainbow', icons: 'plain', animation: 'full', speed: '1x' })
-  expect(await drawn(panel)).toContain('✱') // the plain skills icon
-})
-
-test('animation off skips the speed step', async ($, on) => {
-  const runs: { argv: readonly string[]; stdin?: string }[] = []
-  const { wizard } = await pane($, on, runs)
-  await wizard.press({ key: 'next' })
-  await wizard.press({ key: 'next' })
-  await focus($, wizard, 'more') // full -> calm
-  await focus($, wizard, 'more') // calm -> off
-  await wizard.press({ key: 'next' })
-  expect(JSON.parse(runs.find(r => r.stdin)!.stdin!).animation).toBe('off')
-})
-
-// Arrows walk the buttons in draw order: ◂, next, ▸, cancel. From next, ← lands on ◂ and → on ▸, never on cancel.
-test('the arrows change the value in both directions and → cannot reach cancel', async ($, on) => {
+test('pressing a choice picks it and advances', async ($, on) => {
   const { wizard } = await pane($, on)
+  await wizard.press({ key: 'opt-theme-mono' })
   const out = await drawn(wizard)
-  expect(out.indexOf('◂')).toBeLessThan(out.indexOf('pastel · next'))
-  expect(out.indexOf('pastel · next')).toBeLessThan(out.indexOf('▸'))
-  expect(out.indexOf('▸')).toBeLessThan(out.indexOf('cancel'))
-  await focus($, wizard, 'more')
-  expect(await drawn(wizard)).toContain('rainbow · next')
-  await focus($, wizard, 'prev')
-  await focus($, wizard, 'prev')
-  expect(await drawn(wizard)).toContain('high-contrast · next')
-  expect(await drawn(wizard)).toContain('1/4')
+  expect(out).toContain('Icons 2/4')
+  expect(out).toContain('▸ nerd')
 })
 
-test('a click on ▸ changes the value once', async ($, on) => {
-  const { wizard } = await pane($, on)
-  await focus($, wizard, 'more')
-  await wizard.press({ key: 'more' })
-  expect(await drawn(wizard)).toContain('rainbow · next')
+test('pressing a choice on the last step saves the picks and the Panel then draws with them', async ($, on) => {
+  const runs: Ran = []
+  const { panel, wizard } = await pane($, on, runs)
+  await wizard.press({ key: 'opt-theme-rainbow' })
+  await wizard.press({ key: 'opt-icons-plain' })
+  await wizard.press({ key: 'opt-animation-full' })
+  await wizard.press({ key: 'opt-speed-2x' })
+  expect(saved(runs)).toHaveLength(1)
+  expect(saved(runs)[0]!.argv).toEqual(['claude', 'plugin', 'configure', 'cli-dashboard@mine', '--values-stdin'])
+  expect(JSON.parse(saved(runs)[0]!.stdin!)).toEqual({ theme: 'rainbow', icons: 'plain', animation: 'full', speed: '2x' })
+  expect(await drawn(panel)).toContain('✱')
 })
 
-test('the step total is 3 once animation is off', async ($, on) => {
-  const { wizard } = await pane($, on)
-  await wizard.press({ key: 'next' })
-  await wizard.press({ key: 'next' })
-  await focus($, wizard, 'prev') // full -> off
-  expect(await drawn(wizard)).toContain('3/3')
+test('animation off makes the total 3 and skips speed', async ($, on) => {
+  const runs: Ran = []
+  const { wizard } = await pane($, on, runs)
+  await wizard.press({ key: 'opt-theme-pastel' })
+  await wizard.press({ key: 'opt-icons-nerd' })
+  await focus($, wizard, 'opt-animation-off')
+  expect(await drawn(wizard)).toContain('Animation 3/3')
+  await wizard.press({ key: 'opt-animation-off' })
+  expect(JSON.parse(saved(runs)[0]!.stdin!)).toEqual({ theme: 'pastel', icons: 'nerd', animation: 'off', speed: '1x' })
 })
 
 test('a session.start reload drops the picks saved this session', async ($, on) => {
   const { panel, wizard } = await pane($, on)
-  await focus($, wizard, 'prev')
-  await wizard.press({ key: 'next' })
-  await focus($, wizard, 'more') // icons: plain
-  for (const _ of [0, 1, 2]) await wizard.press({ key: 'next' })
+  await wizard.press({ key: 'opt-theme-pastel' })
+  await wizard.press({ key: 'opt-icons-plain' })
+  await wizard.press({ key: 'opt-animation-full' })
+  await wizard.press({ key: 'opt-speed-1x' })
   expect(await drawn(panel)).toContain('✱')
   await $.session.start({ cwd: '/work' } as never)
   expect(await drawn(panel)).not.toContain('✱')
 })
 
 // The kit cannot raise a person's Esc (ui.close with origin person); the cancel Button runs the same closeWizard
-test('cancelling mid-way saves nothing, leaves the Panel as it was and marks the hint seen', async ($, on) => {
-  const runs: { argv: readonly string[]; stdin?: string }[] = []
+test('cancel saves nothing, leaves the Panel as it was and clears the hint', async ($, on) => {
+  const runs: Ran = []
   const { panel, wizard } = await pane($, on, runs)
-  await wizard.press({ key: 'next' })
-  await focus($, wizard, 'more') // icons: plain, in the draft only
+  await wizard.press({ key: 'opt-theme-pastel' })
+  await focus($, wizard, 'opt-icons-plain') // in the draft only
   await wizard.press({ key: 'cancel' })
-  expect(runs.filter(r => r.stdin)).toHaveLength(0)
+  expect(saved(runs)).toHaveLength(0)
   const out = await drawn(panel)
   expect(out).not.toContain('✱')
   expect(out).not.toContain('/cli-dashboard-setup')
@@ -339,7 +333,7 @@ test('cancelling mid-way saves nothing, leaves the Panel as it was and marks the
 test('the setup hint shows until the wizard is finished', async ($, on) => {
   const { panel, wizard } = await pane($, on)
   expect(await drawn(panel)).toContain('/cli-dashboard-setup')
-  for (const _ of [0, 1, 2, 3]) await wizard.press({ key: 'next' })
+  for (const k of ['opt-theme-pastel', 'opt-icons-nerd', 'opt-animation-full', 'opt-speed-1x']) await wizard.press({ key: k })
   expect(await drawn(panel)).not.toContain('/cli-dashboard-setup')
 })
 

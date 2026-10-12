@@ -64,7 +64,10 @@ Speed scales the motion factors, not the tick: the gradient step (`0.125` per fr
   question at a time, in the order theme → icons → animation → speed. Speed is skipped when animation is
   `off`. (Not a question line in the Panel: a `Client` there needs a click for keys and never receives
   Escape.)
-- ←/→ cycles the options, enter goes to the next question, esc closes the pane and cancels.
+- Each question is a vertical list of options, one Button per line with a short hint, the current one marked
+  `▸`. Panes walk the focus ring with ↑/↓ and never deliver ←/→ to the mod, so ↑/↓ choose (the `ui.focus`
+  hook sets the draft to the option the ring lands on, so the preview follows), enter picks it and goes to
+  the next question, esc closes the pane and cancels. A `cancel` row ends the list.
 - Under the question, the pane draws a live preview of the Panel with the option currently shown, using
   the same `draw` code and the session's real Fixed Rows data.
 - The preview adds sample rows (a running agent, a finished agent, an in-progress task), reusing the

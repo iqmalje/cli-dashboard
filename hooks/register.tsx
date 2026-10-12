@@ -11,7 +11,7 @@ import { CHOICES, lookOf, picksFrom } from './look'
 import type { Look, Picks } from './look'
 import { agentSections, fixedRows, sessionNameFrom, skillsSection, taskSection } from './rows'
 import { sampleAgents, sampleTasks } from './sample'
-import { STEPS, advance, cycle, pluginId } from './setup'
+import { QUESTIONS, STEPS, advance, optKey, optValue, pick, pluginId } from './setup'
 import type { Setup } from './setup'
 import type { FixedData } from './rows'
 import { applyToolCall } from './tasks'
@@ -155,9 +155,6 @@ async function refreshSession($: EngineInterface) {
   await refreshSessionName($)
 }
 
-// ◂/▸ only take the ring; the ui.focus hook does the changing, so a click is not counted twice
-const noop = () => {}
-
 const lineText = (Text: any, l: Line) => (
   <Text wrap="truncate-end">
     {l.segs.map(s => (
@@ -221,6 +218,18 @@ const closeWizard = async ($: EngineInterface, options: Readonly<Record<string, 
 const cancel = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
   await closeWizard($, options)
   await $.ui.close({ id: 'setup' }).catch(() => {})
+}
+
+// enter on a choice: pick it, then ask the next question (ring on its current value) or save after the last
+const choose = async ($: EngineInterface, options: Readonly<Record<string, unknown>>, value: string) => {
+  const s = await read($, setup)
+  if (!s) return
+  const picked = pick(s, value)
+  const nxt = advance(picked)
+  await update($, setup, () => nxt ?? picked)
+  if (!nxt) return finish($, options)
+  // the focused Button is gone with the old step: put the ring on the new step's value
+  await $.ui.focus({ requestId: 'setup', key: optKey(nxt.step, nxt.picks[STEPS[nxt.step] ?? 'theme']) }).catch(() => {})
 }
 
 const finish = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
@@ -478,11 +487,12 @@ export const register: Register = (on, options) => {
     )
   })
 
-  // an arrow landing on ◂ or ▸ changes the value and the ring stays on next, so enter always advances
+  // the ring landing on a choice (panes walk it with ↑/↓) makes it the draft, so the preview follows
   on('ui.focus', { requestId: 'setup' }, async ($, e, next) => {
-    if (e.element !== 'prev' && e.element !== 'more') return next(e)
-    await update($, setup, v => (v ? cycle(v, e.element === 'prev' ? -1 : 1) : v))
-    return {}
+    const s = await read($, setup)
+    const value = s ? optValue(s.step, e.element) : undefined
+    if (value !== undefined) await update($, setup, v => (v ? pick(v, value) : v))
+    return next(e)
   })
 
   // the wizard: one question, then the live preview drawn with the draft's look
@@ -491,39 +501,39 @@ export const register: Register = (on, options) => {
     const s = await read($, setup)
     if (!s) return <Text> </Text>
     const k = STEPS[s.step] ?? 'theme'
-    const value = s.picks[k]
+    const q = QUESTIONS[k]
     const look = lookOf(s.picks)
     const W = (e.props as { bodyColumns?: number } | undefined)?.bodyColumns ?? (e.viewport?.columns ?? 80) - HINT_MARGIN
     const now = await $.clock.now()
     const f = await read($, frame)
-    const last = advance(s) === null
     const sections = [
       ...fixedFit(await fixedData($, now, userLimit), W, look),
       ...agentSections(sampleAgents(now), {}, now, f, 0, look),
       taskSection(sampleTasks(now), false, now, f, look)!,
     ]
-    const change = (by: number) => () => void update($, setup, v => (v ? cycle(v, by) : v))
-    const next = () => void (last ? finish($, options) : update($, setup, v => (v ? advance(v) ?? v : v)))
+    const total = s.picks.animation === 'off' ? 3 : 4
     return (
       <Box flexDirection="column">
-        <Box>
-          <Text bold>{k}</Text>
-          <Text>  </Text>
-          {/* draw order is the ring's order: ← lands on ◂ (-1), → on ▸ (+1), the ui.focus hook keeps the ring on next */}
-          <Button key="prev" plain onPress={noop}>
-            <Text>◂</Text>
+        <Text bold>
+          {q.title} <Text dimColor>{s.step + 1}/{total}</Text>
+        </Text>
+        <Text dimColor wrap="truncate-end">{q.about}</Text>
+        <Text> </Text>
+        {CHOICES[k].map(v => (
+          <Button key={optKey(s.step, v)} plain autoFocus={s.step === 0 && v === s.picks[k] ? true : undefined} onPress={() => void choose($, options, v)}>
+            <Text wrap="truncate-end">
+              {v === s.picks[k] ? '▸ ' : '  '}
+              {v}
+              <Text dimColor>  {q.hints[v]}</Text>
+            </Text>
           </Button>
-          <Button key="next" plain autoFocus onPress={next}>
-            <Text bold> {value} · {last ? 'save' : 'next'} </Text>
-          </Button>
-          <Button key="more" plain onPress={noop}>
-            <Text>▸</Text>
-          </Button>
-          <Text dimColor>{value === CHOICES[k][0] && k === 'theme' ? ' (recommended)' : ''}  {s.step + 1}/{s.picks.animation === 'off' ? 3 : 4}  ←/→ change · enter next · esc cancel </Text>
-          <Button key="cancel" plain onPress={() => void cancel($, options)}>
-            <Text dimColor> [ cancel ]</Text>
-          </Button>
-        </Box>
+        ))}
+        <Text> </Text>
+        <Button key="cancel" plain onPress={() => void cancel($, options)}>
+          <Text dimColor>  cancel</Text>
+        </Button>
+        <Text> </Text>
+        <Text dimColor wrap="truncate-end">↑/↓ choose · enter pick · esc cancel</Text>
         {draw(sections, W, f, look).map(l => lineText(Text, l))}
       </Box>
     )

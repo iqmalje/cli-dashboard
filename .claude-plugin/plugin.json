@@ -49,8 +49,8 @@
     },
     "speed": {
       "type": "string",
-      "title": "Animation speed",
-      "description": "How fast the gradient and hue cycling move under full animation.",
+      "title": "Colour animation speed",
+      "description": "How fast the meter gradient and agent colours shift under full animation. The spinner keeps its pace.",
       "options": [
         "1x",
         "0.5x",
