@@ -7,7 +7,8 @@ import { agentDirOf, cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
 import { softLimit } from './meter'
 import type { Drop, Line } from './frame'
-import { agentSections, fixedRows, ICON, sessionNameFrom, skillsSection, taskSection } from './rows'
+import { lookOf, picksFrom } from './look'
+import { agentSections, fixedRows, sessionNameFrom, skillsSection, taskSection } from './rows'
 import type { FixedData } from './rows'
 import { applyToolCall } from './tasks'
 import type { TaskCall } from './tasks'
@@ -150,11 +151,12 @@ async function refreshSession($: EngineInterface) {
 export const register: Register = (on, options) => {
   // the userConfig softLimit (claude plugin configure); unset means the per-model default
   const userLimit = Number(options.softLimit ?? 0)
+  const look = lookOf(picksFrom(options))
   let tick: Timer | undefined
   let poll: Timer | undefined
 
   on('session.start', async ($, e, next) => {
-    tick ??= $.clock.every(120, () => update($, frame, n => n + 1))
+    if (look.spin) tick ??= $.clock.every(120, () => update($, frame, n => n + 1))
     // an in-process /resume raises no session.start and no turn until the next prompt: the poll spots the new id
     poll ??= $.clock.every(2000, async () => {
       if (await syncSession($).catch(() => false)) await refreshSession($).catch(() => {})
@@ -304,19 +306,19 @@ export const register: Register = (on, options) => {
       cacheLeftMs: cacheLeft(await read($, lastResponseAt), now),
       softLimit: softLimit(u?.window ?? 0, m, userLimit),
     }
-    const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(s => rowWidth(s.rows[0] ?? [])))
+    const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, look).map(s => rowWidth(s.rows[0] ?? [])))
     const drops = planDrops(need, W)
 
     const list = await read($, tasks)
-    const tasksSec = taskSection(list, await read($, tasksOpen), now, f)
+    const tasksSec = taskSection(list, await read($, tasksOpen), now, f, look)
     const skillList = await read($, skills)
     const sections = [
-      ...fixedRows(data, drops),
-      ...agentSections(await read($, agents), await read($, runs), now, f, await read($, agentScroll)),
+      ...fixedRows(data, drops, look),
+      ...agentSections(await read($, agents), await read($, runs), now, f, await read($, agentScroll), look),
       ...(tasksSec ? [tasksSec] : []),
-      ...((await read($, showSkills)) ? [skillsSection(skillList, await read($, plugins))] : []),
+      ...((await read($, showSkills)) ? [skillsSection(skillList, await read($, plugins), look)] : []),
     ]
-    const caption = { text: ` ${ICON.skills}  ${skillList.length} skills ${(await read($, showSkills)) ? '▾' : '▸'} `, press: 'skills' }
+    const caption = { text: ` ${look.icon.skills}  ${skillList.length} skills ${(await read($, showSkills)) ? '▾' : '▸'} `, press: 'skills' }
     const press: Record<string, () => void> = {
       tasks: () => void update($, tasksOpen, v => !v),
       skills: () => void update($, showSkills, v => !v),
@@ -344,7 +346,7 @@ export const register: Register = (on, options) => {
 
     // the agents rows (and the rules between their sections) go in one Client, so a click focuses them for ↑/↓
     // (props are plain JSON: the round trip drops the segments' undefined fields)
-    const lines = draw(sections, W, f, caption)
+    const lines = draw(sections, W, f, look, caption)
     const first = lines.findIndex(l => l.press === 'agents')
     const last = lines.findLastIndex(l => l.press === 'agents')
     const panel =

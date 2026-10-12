@@ -1,5 +1,6 @@
-import { flow, oklch, pastel } from './color'
+import { flow } from './color'
 import { width } from './format'
+import type { Look } from './look'
 
 export type Part = {
   text: string
@@ -18,7 +19,6 @@ export type Line = { segs: readonly Seg[]; press?: string }
 export type Drop = 'dirShort' | 'sevenDay' | 'sessionName' | 'dirty' | 'cache'
 
 export const DROP_ORDER: readonly Drop[] = ['dirShort', 'sevenDay', 'sessionName', 'dirty', 'cache']
-export const BORDER = oklch(0.6, 0.05, 280)
 const MIN_CELL = 4
 
 export const cellWidth = (c: Cell) => c.parts.reduce((n, p) => n + (p.grow === undefined ? width(p.text) : 0), 0) + 2
@@ -87,7 +87,7 @@ const squeeze = (c: Cell, w: number): Cell => {
   return { parts }
 }
 
-const cellSegs = (cell: Cell, w: number, f: number): Seg[] => {
+const cellSegs = (cell: Cell, w: number, f: number, look: Look): Seg[] => {
   const c = squeeze(cell, w)
   const slack = Math.max(0, w - cellWidth(c))
   const weight = c.parts.reduce((n, p) => n + (p.grow ?? 0), 0)
@@ -106,30 +106,30 @@ const cellSegs = (cell: Cell, w: number, f: number): Seg[] => {
       continue
     }
     const [a, b] = p.hues
-    for (let k = 0; k < n; k++) segs.push({ text: p.text, color: pastel(a + (b - a) * flow(k, n, f)) })
+    for (let k = 0; k < n; k++) segs.push({ text: p.text, color: look.color(a + (b - a) * flow(k, n, f * look.flow)) })
   }
   segs.push({ text: ' '.repeat(weight === 0 ? slack + 1 : 1) })
   return segs
 }
 
-export const draw = (sections: readonly Section[], W: number, f: number, caption?: { text: string; press: string }) => {
+export const draw = (sections: readonly Section[], W: number, f: number, look: Look, caption?: { text: string; press: string }) => {
   const lines: Line[] = []
   const none = new Set<number>()
   let up: ReadonlySet<number> = none
   sections.forEach((s, i) => {
     const w = fit(s, W)
     const down = joints(w)
-    lines.push({ segs: [{ text: rule(i === 0 ? '╭' : '├', i === 0 ? '╮' : '┤', up, down, W), color: BORDER }] })
+    lines.push({ segs: [{ text: rule(i === 0 ? '╭' : '├', i === 0 ? '╮' : '┤', up, down, W), color: look.border }] })
     for (const row of s.rows) {
-      const segs: Seg[] = [{ text: '│', color: BORDER }]
-      row.forEach((c, k) => segs.push(...cellSegs(c, w[k] ?? cellWidth(c), f), { text: '│', color: BORDER }))
+      const segs: Seg[] = [{ text: '│', color: look.border }]
+      row.forEach((c, k) => segs.push(...cellSegs(c, w[k] ?? cellWidth(c), f, look), { text: '│', color: look.border }))
       lines.push({ segs, press: s.press })
     }
     up = down
   })
   const bottom = rule('╰', '╯', up, none, W)
   if (!caption) {
-    lines.push({ segs: [{ text: bottom, color: BORDER }] })
+    lines.push({ segs: [{ text: bottom, color: look.border }] })
     return lines
   }
   const chars = [...bottom]
@@ -138,9 +138,9 @@ export const draw = (sections: readonly Section[], W: number, f: number, caption
   lines.push({
     press: caption.press,
     segs: [
-      { text: chars.slice(0, at).join(''), color: BORDER },
+      { text: chars.slice(0, at).join(''), color: look.border },
       { text: caption.text, dim: true },
-      { text: chars.slice(at + cap.length).join(''), color: BORDER },
+      { text: chars.slice(at + cap.length).join(''), color: look.border },
     ],
   })
   return lines

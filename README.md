@@ -123,8 +123,6 @@ Finished agents stay on the panel with a ✓ until your next prompt, so you can 
 
 cli-dashboard is in alpha, and today everything is fixed to one style. Planned:
 
-- **Colour palettes**: pick a theme, or set your own colours for the border, meter and sections.
-- **Icon packs**: choose between Nerd Font icon sets, or plain text for terminals without a Nerd Font.
 - **Meter states**: rename the five states and move their thresholds.
 - **Sections and cells**: choose which ones show, and in what order.
 
@@ -184,11 +182,16 @@ brew install --cask font-fira-code-nerd-font
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `softLimit` | Context tokens the Dumb Meter treats as full. Capped at the model's context window. | Per model (see [How the soft limit is chosen](#how-the-soft-limit-is-chosen)) |
+| `theme` | Colour palette: `pastel` (recommended), `rainbow`, `mono`, `light` or `high-contrast`. | `pastel` |
+| `icons` | `nerd` needs a Nerd Font; `plain` uses single-width Unicode symbols any terminal draws. | `nerd` |
+| `animation` | `full` flows the gradient, cycles hues and spins; `calm` keeps only the spinner moving; `off` draws a static panel. | `full` |
+| `speed` | How fast the gradient and hue cycling move: `1x`, `0.5x` or `2x`. | `1x` |
 
 Set it from a terminal:
 
 ```sh
 echo '{"softLimit": "400000"}' | claude plugin configure cli-dashboard@cli-dashboard --values-stdin
+echo '{"theme": "rainbow"}' | claude plugin configure cli-dashboard@cli-dashboard --values-stdin
 ```
 
 Or run `/plugin configure cli-dashboard@cli-dashboard` inside Claude Code. Restart your sessions to apply it. To go back to the per-model default, set it to `0`.

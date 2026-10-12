@@ -6,10 +6,13 @@ import { join, resolve } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 
 import type { AgentRow, Task } from '../../types'
-import { BORDER, draw, planDrops, rowWidth } from '../../hooks/frame'
+import { draw, planDrops, rowWidth } from '../../hooks/frame'
 import type { Drop, Line, Section } from '../../hooks/frame'
-import { agentSections, fixedRows, ICON, skillsSection, taskSection } from '../../hooks/rows'
+import { agentSections, fixedRows, skillsSection, taskSection } from '../../hooks/rows'
 import type { FixedData } from '../../hooks/rows'
+import { lookOf, picksFrom } from '../../hooks/look'
+
+const look = lookOf(picksFrom({}))
 
 const ROOT = resolve(import.meta.dir, '../..')
 const OUT = join(ROOT, 'docs/images')
@@ -57,24 +60,24 @@ type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; sk
 const panel = (s: Shot): Line[] => {
   const W = s.columns - 4 // the hint line is 4 columns narrower than the terminal
   if (s.lines) return s.lines(W)
-  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(sec => rowWidth(sec.rows[0] ?? [])))
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, look).map(sec => rowWidth(sec.rows[0] ?? [])))
   const drops = planDrops(need, W)
   const skillList = ['superpowers:brainstorming', 'simplify']
   const sections: Section[] = [
-    ...fixedRows(data, drops),
-    ...(s.agents ? agentSections(agents, {}, NOW, 4, 0) : []),
-    ...(s.tasks ? [taskSection(tasks, false, NOW, 4)!] : []),
-    ...(s.skills ? [skillsSection(skillList, ['superpowers', 'cli-dashboard', 'codex'])] : []),
+    ...fixedRows(data, drops, look),
+    ...(s.agents ? agentSections(agents, {}, NOW, 4, 0, look) : []),
+    ...(s.tasks ? [taskSection(tasks, false, NOW, 4, look)!] : []),
+    ...(s.skills ? [skillsSection(skillList, ['superpowers', 'cli-dashboard', 'codex'], look)] : []),
   ]
-  const caption = { text: ` ${ICON.skills}  ${skillList.length} skills ${s.skills ? '▾' : '▸'} `, press: 'skills' }
-  return draw(sections, W, 10, caption)
+  const caption = { text: ` ${look.icon.skills}  ${skillList.length} skills ${s.skills ? '▾' : '▸'} `, press: 'skills' }
+  return draw(sections, W, 10, look, caption)
 }
 
 // The Dumb Meter row alone, once per state, from Smart to Dumb
 const meterStates = (W: number): Line[] =>
   [0.12, 0.38, 0.6, 0.8, 0.96].flatMap(f => {
     const d: FixedData = { ...data, usage: { ...data.usage!, contextTokens: Math.round(f * 800_000) } }
-    return draw([fixedRows(d, new Set())[1]!], W, 3)
+    return draw([fixedRows(d, new Set(), look)[1]!], W, 3, look)
   })
 
 const esc = (c: string) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c)
@@ -150,7 +153,7 @@ const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns
     .br { position: absolute; width: 8px; border: 2px solid; border-left: 0; border-radius: 0 6px 6px 0; }
     .nt { position: absolute; display: flex; flex-direction: column; gap: 2px; font: 13px -apple-system, "Helvetica Neue", sans-serif; color: #b8b4c8; white-space: nowrap; }
     .nt b { font-size: 14px; font-weight: 600; }
-    .cb { position: absolute; height: 8px; border: 1.5px solid ${BORDER}; border-bottom: 0; border-radius: 5px 5px 0 0; }
+    .cb { position: absolute; height: 8px; border: 1.5px solid ${look.border}; border-bottom: 0; border-radius: 5px 5px 0 0; }
     .cl { position: absolute; text-align: center; font: 12px -apple-system, "Helvetica Neue", sans-serif; color: #b8b4c8; white-space: nowrap; }
   </style><body>${body}${notes}</body>`
   return { html, width, height }
@@ -204,22 +207,22 @@ const hero = (k: number) => {
     sessionTokens: 55_400_000 + k * 180_000,
     cacheLeftMs: 55 * MIN + 45_000 - k * TICK,
   }
-  const sections: Section[] = [...fixedRows(d, new Set()), ...agentSections(rows, {}, now, k, 0), taskSection(list, false, now, k)!]
-  return { lines: draw(sections, W, k, { text: ` ${ICON.skills}  2 skills ▸ `, press: 'skills' }), W }
+  const sections: Section[] = [...fixedRows(d, new Set(), look), ...agentSections(rows, {}, now, k, 0, look), taskSection(list, false, now, k, look)!]
+  return { lines: draw(sections, W, k, look, { text: ` ${look.icon.skills}  2 skills ▸ `, press: 'skills' }), W }
 }
 
 // The Dumb Meter climbing from Smart to Dumb, then holding at the top.
 const meter = (k: number) => {
   const p = Math.min(0.97, 0.05 + (k / 56) * 0.92)
   const d: FixedData = { ...data, usage: { ...data.usage!, contextTokens: Math.round(p * 800_000) } }
-  return { lines: draw([fixedRows(d, new Set())[1]!], 96, k), W: 96 }
+  return { lines: draw([fixedRows(d, new Set(), look)[1]!], 96, k, look), W: 96 }
 }
 
 // The 5h limit at an even pace of 50% (2.5h left): usage climbs from under pace, pauses in peach, then turns rose.
 const burn = (k: number) => {
   const percent = k < 20 ? 38 + k * 0.7 : k < 34 ? 52 : Math.min(64, 52 + (k - 34) * 1.2)
   const d: FixedData = { ...data, usage: { ...data.usage!, fiveHour: { percent, resetsAt: NOW + 150 * MIN } } }
-  return { lines: draw([fixedRows(d, new Set())[0]!], 128, k), W: 128 }
+  return { lines: draw([fixedRows(d, new Set(), look)[0]!], 128, k, look), W: 128 }
 }
 
 // The terminal narrowing from 132 to 72 columns and widening back: cells drop out and return in order.
@@ -228,9 +231,9 @@ const resize = (k: number) => {
   const steps = 20
   const at = k < hold ? 0 : k < hold + steps ? k - hold : k < 2 * hold + steps ? steps : Math.max(0, 2 * steps + 2 * hold - k)
   const W = 128 - at * 3
-  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(sec => rowWidth(sec.rows[0] ?? [])))
-  const sections: Section[] = [...fixedRows(data, planDrops(need, W)), taskSection(tasks, false, NOW, k)!]
-  return { lines: draw(sections, W, k, { text: ` ${ICON.skills}  2 skills ▸ `, press: 'skills' }), W }
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, look).map(sec => rowWidth(sec.rows[0] ?? [])))
+  const sections: Section[] = [...fixedRows(data, planDrops(need, W), look), taskSection(tasks, false, NOW, k, look)!]
+  return { lines: draw(sections, W, k, look, { text: ` ${look.icon.skills}  2 skills ▸ `, press: 'skills' }), W }
 }
 
 const clips: Clip[] = [

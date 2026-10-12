@@ -9,6 +9,55 @@
       "title": "Soft limit (tokens)",
       "description": "Context tokens the Dumb Meter treats as full. Leave unset for the per-model default.",
       "required": false
+    },
+    "theme": {
+      "type": "string",
+      "title": "Theme",
+      "description": "Colour palette. pastel is recommended; rainbow is more saturated, mono uses one hue, light suits light terminals, high-contrast maximises contrast.",
+      "options": [
+        "pastel",
+        "rainbow",
+        "mono",
+        "light",
+        "high-contrast"
+      ],
+      "default": "pastel",
+      "required": false
+    },
+    "icons": {
+      "type": "string",
+      "title": "Icons",
+      "description": "nerd needs a Nerd Font; plain uses single-width Unicode symbols that any terminal draws.",
+      "options": [
+        "nerd",
+        "plain"
+      ],
+      "default": "nerd",
+      "required": false
+    },
+    "animation": {
+      "type": "string",
+      "title": "Animation",
+      "description": "full flows the gradient, cycles hues and spins; calm keeps only the spinner moving; off draws a static panel and stops the frame tick.",
+      "options": [
+        "full",
+        "calm",
+        "off"
+      ],
+      "default": "full",
+      "required": false
+    },
+    "speed": {
+      "type": "string",
+      "title": "Animation speed",
+      "description": "How fast the gradient and hue cycling move under full animation.",
+      "options": [
+        "1x",
+        "0.5x",
+        "2x"
+      ],
+      "default": "1x",
+      "required": false
     }
   }
 }
