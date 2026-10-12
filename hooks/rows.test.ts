@@ -20,6 +20,7 @@ const base: FixedData = {
   usage: { contextTokens: 464_000, window: 1_000_000, fiveHour: { percent: 42, resetsAt: 72 * 60_000 }, sevenDay: { percent: 18 } },
   sessionTokens: 412_000,
   cacheLeftMs: 221_000,
+  softLimit: 800_000,
 }
 
 test('fixedRows: row 1 holds where/who, row 2 holds how full', () => {

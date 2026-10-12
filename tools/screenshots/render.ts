@@ -35,6 +35,7 @@ const data: FixedData = {
   },
   sessionTokens: 55_400_000,
   cacheLeftMs: 55 * MIN + 45_000,
+  softLimit: 800_000,
 }
 
 const agents: AgentRow[] = [

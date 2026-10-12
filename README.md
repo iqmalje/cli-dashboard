@@ -11,7 +11,7 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 </div>
 
 > [!NOTE]
-> cli-dashboard is in **alpha**. It ships one look, the author's own: one colour palette, one soft limit, one icon set. Settings to change these are planned (see the [Roadmap](#roadmap)). Expect rough edges, and expect the layout to change between releases.
+> cli-dashboard is in **alpha**. It ships one look, the author's own: one colour palette and one icon set. Settings to change these are planned (see the [Roadmap](#roadmap)). Expect rough edges, and expect the layout to change between releases.
 
 <p align="center">
   <img src="docs/images/full.png" alt="cli-dashboard with every section open: where and who, how full, agents, tasks, and skills and plugins, each labelled" width="100%">
@@ -50,7 +50,15 @@ The agents, tasks and skills sections only appear while they have something to s
 
 ### The Dumb Meter
 
-The meter measures context tokens against a **soft limit**: 800k tokens, or the model's context window if that is smaller. The bar flows in a gradient and is named by how full it is:
+The meter measures context tokens against a **soft limit**, the point the meter treats as full. The default depends on the model:
+
+| Model | Default soft limit | Why |
+| --- | --- | --- |
+| Claude 5 models (Fable, Opus, Sonnet, Haiku 5.x) on a 1M window | **800K** | Their system cards report long-context results across the full 1M window with no published drop-off point. |
+| Claude 4.x and older on a 1M window (Opus 4.6–4.8, Sonnet 4.6) | **512K** | Opus 4.6 measurably degrades past 256K (MRCR v2, 8 needles: 93.0 at 256K, 76.0 at 1M), so the meter turns Foggy at 256K. |
+| Any model on a 200K window (Haiku 4.5, Opus 4.5, Sonnet 4.5) | **200K** | The window itself. |
+
+You can set your own soft limit (see [Settings](#settings)). The bar flows in a gradient and is named by how full it is:
 
 | Fill | State |
 | --- | --- |
@@ -152,6 +160,20 @@ claude plugin uninstall cli-dashboard@cli-dashboard
 claude plugin marketplace remove cli-dashboard
 ```
 
+### Settings
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `softLimit` | Context tokens the Dumb Meter treats as full. Capped at the model's context window. | Per model (see [The Dumb Meter](#the-dumb-meter)) |
+
+Set it from a terminal:
+
+```sh
+echo '{"softLimit": "400000"}' | claude plugin configure cli-dashboard@cli-dashboard --values-stdin
+```
+
+Or run `/plugin configure cli-dashboard@cli-dashboard` inside Claude Code. Restart your sessions to apply it. To go back to the per-model default, set it to `0`.
+
 ### Troubleshooting
 
 | Problem | Fix |
@@ -249,7 +271,6 @@ On Claude Code 2.1.295, the `classic.*` hook events (`SessionStart`, `PostToolUs
 cli-dashboard is in alpha, and today everything is fixed to one style. Planned:
 
 - **Colour palettes**: pick a theme, or set your own colours for the border, meter and sections.
-- **Soft limit**: set the token count the Dumb Meter treats as full (now 800k, or the context window if smaller).
 - **Icon packs**: choose between Nerd Font icon sets, or plain text for terminals without a Nerd Font.
 - **Meter states**: rename the five states and move their thresholds.
 - **Sections and cells**: choose which ones show, and in what order.

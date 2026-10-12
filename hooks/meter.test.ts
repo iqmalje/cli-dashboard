@@ -15,19 +15,38 @@ test('dumbState: 69.9% is Foggy, 70% is Cooked, 90% is Dumb', () => {
   expect(dumbState(0.9).name).toBe('Dumb')
 })
 
-test('softLimit is 800k on a 1M window, but the window itself when smaller', () => {
-  expect(softLimit(1_000_000)).toBe(800_000)
-  expect(softLimit(200_000)).toBe(200_000)
+// Per-model defaults: 4.x-and-older 1M models measurably degrade past 256K (Opus 4.6 MRCR v2 8-needle: 93.0 at
+// 256K, 76.0 at 1M), so their soft limit is 512K and Foggy starts at 256K. Claude 5 models publish no drop-off point
+// and keep 800K. A 200K window is its own limit.
+test('softLimit: Claude 5 models on a 1M window are full at 800K', () => {
+  for (const m of ['claude-opus-5-5', 'claude-fable-5-1', 'claude-sonnet-5', 'claude-haiku-5-5']) expect(softLimit(1_000_000, m)).toBe(800_000)
 })
 
-test('softLimit falls back when the window is 0', () => {
-  expect(softLimit(0)).toBe(800_000)
+test('softLimit: Claude 4.x models on a 1M window are full at 512K', () => {
+  for (const m of ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4-8[1m]', 'claude-sonnet-4-5-20250929']) expect(softLimit(1_000_000, m)).toBe(512_000)
+})
+
+test('softLimit: a 200K window is its own limit, whatever the model', () => {
+  expect(softLimit(200_000, 'claude-haiku-4-5')).toBe(200_000)
+  expect(softLimit(200_000, 'claude-opus-5-5')).toBe(200_000)
+})
+
+test("softLimit: the user's option wins, capped at the window; unset or 0 means the default", () => {
+  expect(softLimit(1_000_000, 'claude-opus-5-5', 400_000)).toBe(400_000)
+  expect(softLimit(200_000, 'claude-haiku-4-5', 500_000)).toBe(200_000)
+  expect(softLimit(1_000_000, 'claude-opus-5-5', 0)).toBe(800_000)
+})
+
+test('softLimit: before the window is known, the model tier applies', () => {
+  expect(softLimit(0, 'claude-opus-5-5')).toBe(800_000)
+  expect(softLimit(0, 'claude-opus-4-6')).toBe(512_000)
+  expect(softLimit(0, '')).toBe(800_000)
+})
+
+test('fill is the share of the soft limit, clamped to 0..1', () => {
+  expect(fill(400_000, 800_000)).toBe(0.5)
+  expect(fill(900_000, 800_000)).toBe(1)
   expect(fill(0, 0)).toBe(0)
-})
-
-test('fill is clamped to 1 past the Soft Limit', () => {
-  expect(fill(900_000, 1_000_000)).toBe(1)
-  expect(fill(400_000, 1_000_000)).toBe(0.5)
 })
 
 // The meter gradient is a triangle wave: its ends must sit at the two hues, or the bar never reaches the state colour.

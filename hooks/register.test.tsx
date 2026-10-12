@@ -189,3 +189,20 @@ test('a resumed session is picked up by the poll without a prompt', async ($, on
   await clock.advance(2000)
   expect(await drawn(ui)).toContain('1/2')
 })
+
+// 300K of a 1M window: against the default 800K soft limit that is Coasting (37.5%); a user who set their
+// soft limit to 400K through `claude plugin configure` sees Cooked (75%).
+const measured = async ($: Engine, on: On) => {
+  on('session.measure', () => ({ changed: [] }))
+  const ui = await wide($, on)
+  await $.session.measure({ context: { tokens: 300_000, window: 1_000_000 }, rateLimits: [] } as never)
+  return drawn(ui)
+}
+
+test('the meter uses the default soft limit when the option is unset', async ($, on) => {
+  expect(await measured($, on)).toContain('Coasting')
+})
+
+test('the softLimit option sets the meter', { options: { softLimit: 400_000 } }, async ($, on) => {
+  expect(await measured($, on)).toContain('Cooked')
+})

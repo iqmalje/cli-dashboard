@@ -1,1 +1,14 @@
-{ "name": "cli-dashboard", "version": "0.2.0", "description": "Session panel under the prompt: context, limits, agents and tasks", "types": "./types/index.d.ts" }
+{
+  "name": "cli-dashboard",
+  "version": "0.2.0",
+  "description": "Session panel under the prompt: context, limits, agents and tasks",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "softLimit": {
+      "type": "number",
+      "title": "Soft limit (tokens)",
+      "description": "Context tokens the Dumb Meter treats as full. Leave unset for the per-model default.",
+      "required": false
+    }
+  }
+}

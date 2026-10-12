@@ -33,6 +33,7 @@ export type FixedData = {
   usage: Usage | null
   sessionTokens: number
   cacheLeftMs: number | null
+  softLimit: number
 }
 
 // md icons draw wider than one cell; the powerline branch glyph does not
@@ -61,7 +62,7 @@ export function fixedRows(d: FixedData, drops: ReadonlySet<Drop>): Section[] {
   if (d.usage?.sevenDay && !drops.has('sevenDay')) row1.push(limit('7d', d.usage.sevenDay, SEVEN_DAYS, ICON.d7, 250, d.now))
 
   const tokens = d.usage?.contextTokens ?? 0
-  const f = fill(tokens, d.usage?.window ?? 0)
+  const f = fill(tokens, d.softLimit)
   const st = dumbState(f)
   const meter = cell(
     { text: `${st.icon}  `, color: pastel(st.hue) },

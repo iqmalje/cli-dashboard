@@ -5,6 +5,7 @@ import type { AgentRow, Limit, Task, Usage } from '../types'
 import { agentTokens, onPrompt, scrollBy, setEffort, setTokens, spawn, stop } from './agents'
 import { agentDirOf, cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
+import { softLimit } from './meter'
 import type { Drop, Line } from './frame'
 import { agentSections, fixedRows, ICON, sessionNameFrom, skillsSection, taskSection } from './rows'
 import type { FixedData } from './rows'
@@ -146,7 +147,9 @@ async function refreshSession($: EngineInterface) {
   await refreshSessionName($)
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  // the userConfig softLimit (claude plugin configure); unset means the per-model default
+  const userLimit = Number(options.softLimit ?? 0)
   let tick: Timer | undefined
   let poll: Timer | undefined
 
@@ -286,17 +289,20 @@ export const register: Register = on => {
     // ponytail: the hint line is 4 columns narrower than the terminal (measured live); a Client region reports its real width if this drifts
     const W = (e.viewport?.columns ?? 80) - HINT_MARGIN
 
+    const m = await read($, model)
+    const u = await read($, usage)
     const data: FixedData = {
       now,
       cwd: await read($, cwd),
       home: await read($, home),
       sessionName: await read($, sessionName),
       git: await read($, git),
-      model: await read($, model),
+      model: m,
       effort: await read($, effort),
-      usage: await read($, usage),
+      usage: u,
       sessionTokens: await read($, sessionTokens),
       cacheLeftMs: cacheLeft(await read($, lastResponseAt), now),
+      softLimit: softLimit(u?.window ?? 0, m, userLimit),
     }
     const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(s => rowWidth(s.rows[0] ?? [])))
     const drops = planDrops(need, W)
