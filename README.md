@@ -10,69 +10,62 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 
 </div>
 
-> [!NOTE]
-> cli-dashboard is in **alpha**. It ships one look, the author's own: one colour palette and one icon set. Settings to change these are planned (see the [Roadmap](#roadmap)). Expect rough edges, and expect the layout to change between releases.
-
 <p align="center">
   <img src="docs/images/full.png" alt="cli-dashboard with every section open: where and who, how full, agents, tasks, and skills and plugins, each labelled" width="100%">
 </p>
 
 > Inspired by [**YAS! (Yet Another Statusline)**](https://github.com/tmck-code/yet-another-statusline) by tmck-code. Go give it a star.
 
+## Highlights
+
+- **The Dumb Meter**: see how full your context is at a glance, from **Smart** to **Dumb**, with a bar that flows warmer as it fills.
+- **Rate limits with a burn rate**: your 5-hour and 7-day limits turn **peach**, then **rose**, when you're using them faster than the window allows.
+- **Live subagents**: every agent's model, effort, tokens and running time, with a spinner until it's done.
+- **Tasks at a glance**: progress and the task in progress. Click to see the full list.
+- **Fits any terminal**: the panel grows with what's going on and shrinks to fit a narrow window.
+- **Two commands to install**: no cloning, no config files.
+
+> [!NOTE]
+> cli-dashboard is in **alpha**. It ships one look, the author's own: one colour palette and one icon set. Settings to change these are planned (see the [Roadmap](#roadmap)). Expect rough edges, and expect the layout to change between releases.
+
 ## Contents
 
-- [What it shows](#what-it-shows)
-  - [The Dumb Meter](#the-dumb-meter)
-  - [Full, partial and shrunken](#full-partial-and-shrunken)
-- [Installation](#installation)
-  - [Fonts](#fonts)
-  - [Updating](#updating)
-  - [Uninstalling](#uninstalling)
-  - [Troubleshooting](#troubleshooting)
+- [Quick start](#quick-start)
+- [See it in action](#see-it-in-action)
+- [The Dumb Meter](#the-dumb-meter)
 - [Using it](#using-it)
-- [Development](#development)
-- [Known limits](#known-limits)
 - [Roadmap](#roadmap)
+- [Reference](#reference)
+  - [What each row shows](#what-each-row-shows)
+  - [Fonts](#fonts)
+  - [Settings](#settings)
+  - [How the soft limit is chosen](#how-the-soft-limit-is-chosen)
+  - [Narrow terminals](#narrow-terminals)
+  - [Updating and uninstalling](#updating-and-uninstalling)
+  - [Troubleshooting](#troubleshooting)
+  - [Known limits](#known-limits)
+- [Development](#development)
 - [Credits](#credits)
 - [License](#license)
 
-## What it shows
+## Quick start
 
-| Row | What you see |
-| --- | --- |
-| **Where and who** | Working directory, session name, git branch with a dirty-file count, model and effort, and your 5-hour and 7-day rate limits with time to reset. The limit percentage shows your burn rate: **blue** under an even pace for the window, **peach** up to 5 points over it, **rose** beyond that. |
-| **How full** | The **Dumb Meter** (context fill), the session's total tokens, and a countdown to when the prompt cache expires. |
-| **Agents** | One row per subagent: type, model and effort, task, live token count, elapsed time, and a spinner or ✓. Workflow agents get their own section, named after the run. |
-| **Tasks** | Progress (`done/total`) and the task in progress. Click to expand the full list. |
-| **Skills** | The skills used this session and the enabled plugins. Toggle with `/cli-dashboard-skills` or a click. |
+You need **Claude Code 2.1.295 or later** (`claude --version`; run `claude update` if it is older).
 
-The agents, tasks and skills sections only appear while they have something to show.
+```sh
+claude plugin marketplace add iqmalje/cli-dashboard
+claude plugin install cli-dashboard@cli-dashboard
+```
 
-### The Dumb Meter
+Then start a new session:
 
-The meter measures context tokens against a **soft limit**, the point the meter treats as full. The default depends on the model:
+```sh
+claude
+```
 
-| Model | Default soft limit | Why |
-| --- | --- | --- |
-| Claude 5 models (Fable, Opus, Sonnet, Haiku 5.x) on a 1M window | **800K** | Their system cards report long-context results across the full 1M window with no published drop-off point. |
-| Claude 4.x and older on a 1M window (Opus 4.6–4.8, Sonnet 4.6) | **512K** | Opus 4.6 measurably degrades past 256K (MRCR v2, 8 needles: 93.0 at 256K, 76.0 at 1M), so the meter turns Foggy at 256K. |
-| Any model on a 200K window (Haiku 4.5, Opus 4.5, Sonnet 4.5) | **200K** | The window itself. |
+That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them. Icons look like boxes? You need a Nerd Font (see [Fonts](#fonts)).
 
-You can set your own soft limit (see [Settings](#settings)). The bar flows in a gradient and is named by how full it is:
-
-| Fill | State |
-| --- | --- |
-| under 25% | **Smart** |
-| 25–50% | **Coasting** |
-| 50–70% | **Foggy** |
-| 70–90% | **Cooked** |
-| 90% and over | **Dumb** |
-
-<p align="center"><img src="docs/images/meter.png" alt="The Dumb Meter in each of its five states, from Smart to Dumb, with the bar's gradient growing warmer as it fills" width="720"></p>
-
-The gradient runs from Smart's green to the colour of the current state and flows along the bar. While the meter is **Smart**, both ends are the same green, so the bar looks still. The flow shows from **Coasting** on, and grows stronger as the meter heads for **Dumb**.
-
-### Full, partial and shrunken
+## See it in action
 
 The panel grows and shrinks with what is going on and how wide your terminal is.
 
@@ -88,26 +81,58 @@ The panel grows and shrinks with what is going on and how wide your terminal is.
 
 <p align="center"><img src="docs/images/shrunken.png" alt="Shrunken panel with shortened cells and hidden extras" width="540"></p>
 
-When the top row runs out of room, the panel gives things up in a fixed order: it shortens the directory, then hides the 7-day limit, the session name, the dirty count and the cache countdown. It then takes back anything that fits again, so a long session name never costs you the 7-day limit. Anything still too long is cut with `…`.
+## The Dumb Meter
 
-## Installation
+The meter shows how full your context is, named by how much room is left before the model starts to slip:
 
-You need **Claude Code 2.1.295 or later** (`claude --version`; run `claude update` if it is older).
+| Fill | State |
+| --- | --- |
+| under 25% | **Smart** |
+| 25–50% | **Coasting** |
+| 50–70% | **Foggy** |
+| 70–90% | **Cooked** |
+| 90% and over | **Dumb** |
 
-**1. Install the plugin**
+<p align="center"><img src="docs/images/meter.png" alt="The Dumb Meter in each of its five states, from Smart to Dumb, with the bar's gradient growing warmer as it fills" width="720"></p>
 
-```sh
-claude plugin marketplace add iqmalje/cli-dashboard
-claude plugin install cli-dashboard@cli-dashboard
-```
+The gradient runs from Smart's green to the colour of the current state and flows along the bar. While the meter is **Smart**, both ends are the same green, so the bar looks still. The flow shows from **Coasting** on, and grows stronger as the meter heads for **Dumb**.
 
-**2. Start a new session**
+"Full" is a **soft limit** picked for your model, not the raw context window. See [How the soft limit is chosen](#how-the-soft-limit-is-chosen), or set your own in [Settings](#settings).
 
-```sh
-claude
-```
+## Using it
 
-That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them.
+| Action | How |
+| --- | --- |
+| Expand or collapse the task list | Click the **tasks** row |
+| Scroll the agent rows (5 show at a time) | Click the **agents** rows, then press ↑ / ↓ |
+| Show or hide skills and plugins | Click **skills** in the bottom border, or run `/cli-dashboard-skills` |
+
+Finished agents stay on the panel with a ✓ until your next prompt, so you can see how they ended.
+
+## Roadmap
+
+cli-dashboard is in alpha, and today everything is fixed to one style. Planned:
+
+- **Colour palettes**: pick a theme, or set your own colours for the border, meter and sections.
+- **Icon packs**: choose between Nerd Font icon sets, or plain text for terminals without a Nerd Font.
+- **Meter states**: rename the five states and move their thresholds.
+- **Sections and cells**: choose which ones show, and in what order.
+
+Ideas and requests are welcome in [issues](https://github.com/iqmalje/cli-dashboard/issues).
+
+## Reference
+
+### What each row shows
+
+| Row | What you see |
+| --- | --- |
+| **Where and who** | Working directory, session name, git branch with a dirty-file count, model and effort, and your 5-hour and 7-day rate limits with time to reset. The limit percentage shows your burn rate: **blue** under an even pace for the window, **peach** up to 5 points over it, **rose** beyond that. |
+| **How full** | The **Dumb Meter** (context fill), the session's total tokens, and a countdown to when the prompt cache expires. |
+| **Agents** | One row per subagent: type, model and effort, task, live token count, elapsed time, and a spinner or ✓. Workflow agents get their own section, named after the run. |
+| **Tasks** | Progress (`done/total`) and the task in progress. Click to expand the full list. |
+| **Skills** | The skills used this session and the enabled plugins. Toggle with `/cli-dashboard-skills` or a click. |
+
+The agents, tasks and skills sections only appear while they have something to show.
 
 ### Fonts
 
@@ -144,27 +169,11 @@ brew install --cask font-fira-code-nerd-font
 
 3. Close every Windows Terminal window, then start a new `claude` session.
 
-### Updating
-
-```sh
-claude plugin marketplace update cli-dashboard
-claude plugin update cli-dashboard@cli-dashboard
-```
-
-Restart your sessions to load the new version.
-
-### Uninstalling
-
-```sh
-claude plugin uninstall cli-dashboard@cli-dashboard
-claude plugin marketplace remove cli-dashboard
-```
-
 ### Settings
 
 | Setting | What it does | Default |
 | --- | --- | --- |
-| `softLimit` | Context tokens the Dumb Meter treats as full. Capped at the model's context window. | Per model (see [The Dumb Meter](#the-dumb-meter)) |
+| `softLimit` | Context tokens the Dumb Meter treats as full. Capped at the model's context window. | Per model (see [How the soft limit is chosen](#how-the-soft-limit-is-chosen)) |
 
 Set it from a terminal:
 
@@ -173,6 +182,38 @@ echo '{"softLimit": "400000"}' | claude plugin configure cli-dashboard@cli-dashb
 ```
 
 Or run `/plugin configure cli-dashboard@cli-dashboard` inside Claude Code. Restart your sessions to apply it. To go back to the per-model default, set it to `0`.
+
+### How the soft limit is chosen
+
+The Dumb Meter measures context tokens against a **soft limit**, the point it treats as full. The default depends on the model:
+
+| Model | Default soft limit | Why |
+| --- | --- | --- |
+| Claude 5 models (Fable, Opus, Sonnet, Haiku 5.x) on a 1M window | **800K** | Their system cards report long-context results across the full 1M window with no published drop-off point. |
+| Claude 4.x and older on a 1M window (Opus 4.6–4.8, Sonnet 4.6) | **512K** | Opus 4.6 measurably degrades past 256K (MRCR v2, 8 needles: 93.0 at 256K, 76.0 at 1M), so the meter turns Foggy at 256K. |
+| Any model on a 200K window (Haiku 4.5, Opus 4.5, Sonnet 4.5) | **200K** | The window itself. |
+
+### Narrow terminals
+
+When the top row runs out of room, the panel gives things up in a fixed order: it shortens the directory, then hides the 7-day limit, the session name, the dirty count and the cache countdown. It then takes back anything that fits again, so a long session name never costs you the 7-day limit. Anything still too long is cut with `…`.
+
+### Updating and uninstalling
+
+Update:
+
+```sh
+claude plugin marketplace update cli-dashboard
+claude plugin update cli-dashboard@cli-dashboard
+```
+
+Restart your sessions to load the new version.
+
+Uninstall:
+
+```sh
+claude plugin uninstall cli-dashboard@cli-dashboard
+claude plugin marketplace remove cli-dashboard
+```
 
 ### Troubleshooting
 
@@ -185,15 +226,12 @@ Or run `/plugin configure cli-dashboard@cli-dashboard` inside Claude Code. Resta
 | The meter bar doesn't flow | Expected while the meter is **Smart**: the gradient is one colour until **Coasting** (see [The Dumb Meter](#the-dumb-meter)). |
 | No branch cell | The panel only shows a branch inside a git repository, with `git` on your `PATH`. |
 
-## Using it
+### Known limits
 
-| Action | How |
-| --- | --- |
-| Expand or collapse the task list | Click the **tasks** row |
-| Scroll the agent rows (5 show at a time) | Click the **agents** rows, then press ↑ / ↓ |
-| Show or hide skills and plugins | Click **skills** in the bottom border, or run `/cli-dashboard-skills` |
-
-Finished agents stay on the panel with a ✓ until your next prompt, so you can see how they ended.
+- The panel sits below Claude Code's mode line (`auto mode on (shift+tab to cycle)`). The terminal draws that line itself, and a mod cannot draw above it from under the prompt.
+- Live agent tokens are read from transcripts on disk every 2 seconds. A transcript over 4 MiB cannot be read, so its count stops at the last value read.
+- The cache countdown assumes a 1-hour prompt cache. Sessions on an API key get a 5-minute cache by default, so their countdown runs too long. A fix is planned.
+- After `/clear` or `/resume`, the panel catches up within about 2 seconds. The token total restarts at 0 for the resumed session.
 
 ## Development
 
@@ -259,24 +297,6 @@ The script draws the panel with the mod's own code at fixed widths and writes `d
 ### A note on events
 
 On Claude Code 2.1.295, the `classic.*` hook events (`SessionStart`, `PostToolUse`, `Stop`, `SubagentStop`, and the rest) never reach a mod, although the API types document them. The panel uses only events that do arrive: `session.start`, `turn.step`, `turn.complete`, `prompt.submit`, `agent.spawn` and `tool.call`. Check that an event fires before you build on it.
-
-## Known limits
-
-- The panel sits below Claude Code's mode line (`auto mode on (shift+tab to cycle)`). The terminal draws that line itself, and a mod cannot draw above it from under the prompt.
-- Live agent tokens are read from transcripts on disk every 2 seconds. A transcript over 4 MiB cannot be read, so its count stops at the last value read.
-- The cache countdown assumes a 1-hour prompt cache. Sessions on an API key get a 5-minute cache by default, so their countdown runs too long. A fix is planned.
-- After `/clear` or `/resume`, the panel catches up within about 2 seconds. The token total restarts at 0 for the resumed session.
-
-## Roadmap
-
-cli-dashboard is in alpha, and today everything is fixed to one style. Planned:
-
-- **Colour palettes**: pick a theme, or set your own colours for the border, meter and sections.
-- **Icon packs**: choose between Nerd Font icon sets, or plain text for terminals without a Nerd Font.
-- **Meter states**: rename the five states and move their thresholds.
-- **Sections and cells**: choose which ones show, and in what order.
-
-Ideas and requests are welcome in [issues](https://github.com/iqmalje/cli-dashboard/issues).
 
 ## Credits
 
