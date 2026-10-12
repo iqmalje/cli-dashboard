@@ -264,6 +264,7 @@ On Claude Code 2.1.295, the `classic.*` hook events (`SessionStart`, `PostToolUs
 
 - The panel sits below Claude Code's mode line (`auto mode on (shift+tab to cycle)`). The terminal draws that line itself, and a mod cannot draw above it from under the prompt.
 - Live agent tokens are read from transcripts on disk every 2 seconds. A transcript over 4 MiB cannot be read, so its count stops at the last value read.
+- The cache countdown assumes a 1-hour prompt cache. Sessions on an API key get a 5-minute cache by default, so their countdown runs too long. A fix is planned.
 - After `/clear` or `/resume`, the panel catches up within about 2 seconds. The token total restarts at 0 for the resumed session.
 
 ## Roadmap
