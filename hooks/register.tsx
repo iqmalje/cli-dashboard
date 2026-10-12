@@ -214,6 +214,12 @@ const closeWizard = async ($: EngineInterface, options: Readonly<Record<string, 
   await syncTick($, options)
 }
 
+// a plugin's own $.ui.close skips its own ui.close hook, so the cancel Button runs the same cleanup itself
+const cancel = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
+  await closeWizard($, options)
+  await $.ui.close({ id: 'setup' }).catch(() => {})
+}
+
 const finish = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
   const s = await read($, setup)
   if (!s) return
@@ -463,6 +469,13 @@ export const register: Register = (on, options) => {
     )
   })
 
+  // an arrow landing on ◂ or ▸ changes the value and the ring stays on next, so enter always advances
+  on('ui.focus', { requestId: 'setup' }, async ($, e, next) => {
+    if (e.element !== 'prev' && e.element !== 'more') return next(e)
+    await update($, setup, v => (v ? cycle(v, e.element === 'prev' ? -1 : 1) : v))
+    return {}
+  })
+
   // the wizard: one question, then the live preview drawn with the draft's look
   on('ui.render', { component: 'Pane', requestId: 'setup' }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
@@ -494,9 +507,12 @@ export const register: Register = (on, options) => {
           <Button key="more" plain onPress={change(1)}>
             <Text>▸</Text>
           </Button>
-          <Text dimColor>{value === CHOICES[k][0] && k === 'theme' ? ' (recommended)' : ''}  {s.step + 1}/4  ←/→ select · enter press · esc cancel </Text>
+          <Text dimColor>{value === CHOICES[k][0] && k === 'theme' ? ' (recommended)' : ''}  {s.step + 1}/4  ←/→ change · enter next · esc cancel </Text>
           <Button key="next" plain autoFocus onPress={next}>
             <Text bold>{last ? '[ save ]' : '[ next ]'}</Text>
+          </Button>
+          <Button key="cancel" plain onPress={() => void cancel($, options)}>
+            <Text dimColor> [ cancel ]</Text>
           </Button>
         </Box>
         {draw(sections, W, f, look).map(l => lineText(Text, l))}

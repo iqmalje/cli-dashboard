@@ -218,6 +218,7 @@ const pane = async ($: Engine, on: On, runs: { argv: readonly string[]; stdin?: 
   })
   on('session.start', (_, e) => ({ cwd: (e as { cwd: string }).cwd }) as never)
   on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.focus', () => ({}) as never)
   on('ui.close', () => ({ value: undefined }) as never)
   on('settings.read', () => ({ value: { enabledPlugins: { 'cli-dashboard@mine': true } } }) as never)
   on('ui.render', { component: 'PromptHint' }, ($t, e) => {
@@ -275,16 +276,26 @@ test('animation off skips the speed step', async ($, on) => {
   expect(JSON.parse(runs.find(r => r.stdin)!.stdin!).animation).toBe('off')
 })
 
-// The engine cannot raise ui.close from a test (a test's $.ui.close is refused), so the Esc route itself is
-// not exercised: this checks an unfinished draft never reaches the Panel or the saver.
-test('an unfinished draft saves nothing and leaves the Panel unchanged', async ($, on) => {
+// The ring landing on ◂/▸ (the arrows) changes the value and keeps the ring on next
+test('an arrow landing on the right button changes the value without moving the ring', async ($, on) => {
+  const { wizard } = await pane($, on)
+  // the kit passes $.ui.focus's argument on as the event: give it the engine's shape (component, element, origin)
+  await $.ui.focus({ component: 'Pane', requestId: 'setup', element: 'more', origin: { kind: 'person' } } as never)
+  await wizard.redraw()
+  expect(await drawn(wizard)).toContain('rainbow')
+})
+
+// The kit cannot raise a person's Esc (ui.close with origin person); the cancel Button runs the same closeWizard
+test('cancelling mid-way saves nothing, leaves the Panel as it was and marks the hint seen', async ($, on) => {
   const runs: { argv: readonly string[]; stdin?: string }[] = []
   const { panel, wizard } = await pane($, on, runs)
-  const before = await drawn(panel)
-  await wizard.press({ key: 'more' })
   await wizard.press({ key: 'next' })
+  await wizard.press({ key: 'more' }) // icons: plain, in the draft only
+  await wizard.press({ key: 'cancel' })
   expect(runs.filter(r => r.stdin)).toHaveLength(0)
-  expect(await drawn(panel)).toBe(before)
+  const out = await drawn(panel)
+  expect(out).not.toContain('✱')
+  expect(out).not.toContain('/cli-dashboard-setup')
 })
 
 test('the setup hint shows until the wizard is finished', async ($, on) => {
