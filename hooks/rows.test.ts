@@ -4,6 +4,7 @@ import type { AgentRow, Task } from '../types'
 import { agentSections, fixedRows, sessionNameFrom, taskSection } from './rows'
 import type { FixedData } from './rows'
 import { draw, planDrops, rowWidth } from './frame'
+import { pastel } from './color'
 import type { Drop, Section } from './frame'
 
 const text = (s: Section) => s.rows.map(r => r.map(c => c.parts.map(p => p.text).join('')).join('|')).join('\n')
@@ -149,4 +150,12 @@ test('agentSections scrolled: label on the first shown row, tail counts above an
 test('the agents label counts every running agent, not only the rows shown', () => {
   const rows: AgentRow[] = Array.from({ length: 7 }, (_, i) => ({ id: String(i), name: 'Explore', model: 'haiku', description: 'd', startedAt: 0 }))
   expect(text(agentSections(rows, {}, 1000, 0, 0)[0]!)).toContain('agents 7')
+})
+
+// 90% used with 4h of the 5h window left (pace 20%) is far over pace: the 5h percentage turns rose.
+test('the 5h percentage is coloured by burn rate', () => {
+  const hot = { ...base, now: 0, usage: { ...base.usage!, fiveHour: { percent: 90, resetsAt: 4 * 3_600_000 } } }
+  const [r1] = fixedRows(hot, new Set())
+  const parts = r1!.rows[0]!.flatMap(c => c.parts)
+  expect(parts.find(p => p.text === '90%')?.color).toBe(pastel(10))
 })

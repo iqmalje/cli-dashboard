@@ -6,7 +6,7 @@
 
 Context health, rate limits, subagents, tasks and skills, all in one bordered panel that updates as you work.
 
-**Alpha** · v0.1.0
+**Alpha** · v0.2.0
 
 </div>
 
@@ -40,7 +40,7 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 
 | Row | What you see |
 | --- | --- |
-| **Where and who** | Working directory, session name, git branch with a dirty-file count, model and effort, and your 5-hour and 7-day rate limits with time to reset. |
+| **Where and who** | Working directory, session name, git branch with a dirty-file count, model and effort, and your 5-hour and 7-day rate limits with time to reset. The limit percentage shows your burn rate: **blue** under an even pace for the window, **peach** up to 5 points over it, **rose** beyond that. |
 | **How full** | The **Dumb Meter** (context fill), the session's total tokens, and a countdown to when the prompt cache expires. |
 | **Agents** | One row per subagent: type, model and effort, task, live token count, elapsed time, and a spinner or ✓. Workflow agents get their own section, named after the run. |
 | **Tasks** | Progress (`done/total`) and the task in progress. Click to expand the full list. |

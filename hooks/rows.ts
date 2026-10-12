@@ -3,7 +3,7 @@ import { visible } from './agents'
 import { oklch, pastel } from './color'
 import { fmtDuration, fmtModel, fmtTokens, shortDir, shortenHome, width } from './format'
 import type { Cell, Drop, Part, Section } from './frame'
-import { dumbState, fill } from './meter'
+import { burnHue, dumbState, fill, FIVE_HOURS, SEVEN_DAYS } from './meter'
 import { active } from './tasks'
 
 export const ICON = {
@@ -40,11 +40,11 @@ const ic = (icon: string, h: number): Part => ({ text: icon === ICON.branch ? `$
 const cell = (...parts: Part[]): Cell => ({ parts })
 const blank = cell({ text: '' })
 
-const limit = (label: string, l: Limit, icon: string, h: number, now: number) =>
+const limit = (label: string, l: Limit, windowMs: number, icon: string, h: number, now: number) =>
   cell(
     ic(icon, h),
     { text: `${label} ` },
-    { text: `${Math.round(l.percent)}%`, color: pastel(h) },
+    { text: `${Math.round(l.percent)}%`, color: pastel(burnHue(l, windowMs, now, h)) },
     ...(l.resetsAt === undefined ? [] : [{ text: ` ${fmtDuration(l.resetsAt - now)}`, dim: true }]),
   )
 
@@ -57,8 +57,8 @@ export function fixedRows(d: FixedData, drops: ReadonlySet<Drop>): Section[] {
     row1.push(cell(ic(ICON.branch, 140), { text: d.git.branch }, ...dirty))
   }
   row1.push(cell(ic(ICON.model, 300), { text: fmtModel(d.model) }, ...(d.effort ? [{ text: ` · ${d.effort}`, dim: true }] : [])))
-  if (d.usage?.fiveHour) row1.push(limit('5h', d.usage.fiveHour, ICON.h5, 200, d.now))
-  if (d.usage?.sevenDay && !drops.has('sevenDay')) row1.push(limit('7d', d.usage.sevenDay, ICON.d7, 250, d.now))
+  if (d.usage?.fiveHour) row1.push(limit('5h', d.usage.fiveHour, FIVE_HOURS, ICON.h5, 200, d.now))
+  if (d.usage?.sevenDay && !drops.has('sevenDay')) row1.push(limit('7d', d.usage.sevenDay, SEVEN_DAYS, ICON.d7, 250, d.now))
 
   const tokens = d.usage?.contextTokens ?? 0
   const f = fill(tokens, d.usage?.window ?? 0)
