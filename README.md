@@ -11,7 +11,7 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 </div>
 
 <p align="center">
-  <img src="docs/images/full.png" alt="cli-dashboard with every section open: where and who, how full, agents, tasks, and skills and plugins, each labelled" width="100%">
+  <img src="docs/images/hero.gif" alt="cli-dashboard during a live session: subagents spawn and finish, token counts climb, a task completes and the Dumb Meter flows from Coasting into Foggy" width="100%">
 </p>
 
 > Inspired by [**YAS! (Yet Another Statusline)**](https://github.com/tmck-code/yet-another-statusline) by tmck-code. Go give it a star.
@@ -69,9 +69,9 @@ That's it. The panel appears under the prompt. Sessions that were already open d
 
 The panel grows and shrinks with what is going on and how wide your terminal is.
 
-**Full**: subagents running, tasks open, skills shown (132 columns).
+**Full**: subagents running, tasks open, skills shown (132 columns). Each part is labelled.
 
-<p align="center"><img src="docs/images/full.png" alt="Full panel with every section open" width="100%"></p>
+<p align="center"><img src="docs/images/full.png" alt="cli-dashboard with every section open: where and who, how full, agents, tasks, and skills and plugins, each labelled" width="100%"></p>
 
 **Partial**: the everyday view, with the two fixed rows and the current task (112 columns).
 
@@ -81,9 +81,19 @@ The panel grows and shrinks with what is going on and how wide your terminal is.
 
 <p align="center"><img src="docs/images/shrunken.png" alt="Shrunken panel with shortened cells and hidden extras" width="540"></p>
 
+**Burn rate**: your 5-hour limit, half-way through its window. Under 50% used is on track (blue), a little over is a warning (peach), well over is rose.
+
+<p align="center"><img src="docs/images/burn.gif" alt="The 5-hour limit climbing from 38% in blue, holding at 52% in peach, then turning rose at 64%" width="100%"></p>
+
+**Resizing**: cells step aside as the terminal narrows and come back as it widens.
+
+<p align="center"><img src="docs/images/resize.gif" alt="The panel narrowing from 132 to 72 columns and widening back, cells dropping out and returning" width="100%"></p>
+
 ## The Dumb Meter
 
 The meter shows how full your context is, named by how much room is left before the model starts to slip:
+
+<p align="center"><img src="docs/images/meter.gif" alt="The Dumb Meter filling from Smart to Dumb, its gradient warming and flowing as it fills" width="720"></p>
 
 | Fill | State |
 | --- | --- |
@@ -286,13 +296,14 @@ npx -p typescript tsc --noEmit -p .
 
 `tsconfig.json` extends `.claude-plugin/types/tsconfig.json`. Claude Code writes that folder (the engine's API types) the first time it loads the mod, so start one session with the mod installed before you type-check. It is git-ignored.
 
-Regenerate the README screenshots after a visual change (needs [Bun](https://bun.sh), Google Chrome and FiraCode Nerd Font):
+Regenerate the README images after a visual change (needs [Bun](https://bun.sh), Google Chrome, [gifski](https://gif.ski) (`brew install gifski`) and FiraCode Nerd Font):
 
 ```sh
 bun tools/screenshots/render.ts
+ONLY=hero,burn bun tools/screenshots/render.ts   # just these
 ```
 
-The script draws the panel with the mod's own code at fixed widths and writes `docs/images/*.png`: the full, partial and shrunken panels, and the meter in each state. The data in it is made up. The paths default to macOS. Set `CHROME` to the Chrome binary and `FONTS` to the folder holding `FiraCodeNerdFont-Regular.ttf` and `-Bold.ttf` to render elsewhere.
+The script draws the panel with the mod's own code and writes `docs/images/`: the full, partial and shrunken panels and the meter's states as PNGs, and the hero, meter, burn-rate and resize animations as GIFs, one frame per 120 ms panel tick. A full run takes about two minutes. The data in it is made up. The paths default to macOS. Set `CHROME` to the Chrome binary and `FONTS` to the folder holding `FiraCodeNerdFont-Regular.ttf` and `-Bold.ttf` to render elsewhere.
 
 ### A note on events
 

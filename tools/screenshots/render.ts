@@ -1,8 +1,9 @@
-// Renders the README screenshots from the mod's own drawing code: bun tools/screenshots/render.ts
-// Needs Google Chrome and FiraCode Nerd Font installed. Writes docs/images/*.png.
-import { mkdirSync, writeFileSync } from 'node:fs'
+// Renders the README screenshots and GIFs from the mod's own drawing code: bun tools/screenshots/render.ts
+// Needs Google Chrome, gifski and FiraCode Nerd Font installed. Writes docs/images/*.png and *.gif.
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 
 import type { AgentRow, Task } from '../../types'
 import { BORDER, draw, planDrops, rowWidth } from '../../hooks/frame'
@@ -110,15 +111,17 @@ const cellNotes = (lines: Line[]) => {
   return bars.slice(0, -1).map((x, k) => ({ from: x + 1, to: bars[k + 1]! - 1, name: names[k] ?? '' }))
 }
 
-const page = (s: Shot) => {
-  const lines = panel(s)
-  const W = s.columns - 4
+const page = (s: Shot) => pageOf(panel(s), s.columns - 4, s.notes)
+
+// A fixed canvas (width in columns, height in lines) keeps every frame of a GIF the same size.
+const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns: number; lines: number }) => {
+  const s = { notes: withNotes }
   const top = s.notes ? 64 : 24
   const left = 24
-  const panelW = W * CELL_W
+  const panelW = (canvas ? canvas.columns - 4 : W) * CELL_W
   const notesW = s.notes ? 360 : 0
   const width = left + panelW + 24 + notesW + 24
-  const height = top + lines.length * LINE_H + 24
+  const height = top + (canvas ? canvas.lines : lines.length) * LINE_H + 24
   const body = lines.map((l, i) => `<div class="ln" style="top:${top + i * LINE_H}px">${lineHtml(l)}</div>`).join('')
   const notes = s.notes
     ? [
@@ -160,14 +163,110 @@ const shots: Shot[] = [
   { name: 'meter', columns: 100, agents: false, tasks: false, skills: false, notes: false, lines: meterStates },
 ]
 
+const shoot = (html: string, width: number, height: number, png: string, scale: number) =>
+  new Promise<void>((done, fail) => {
+    const file = `${png}.html`
+    writeFileSync(file, html)
+    const p = spawn(CHROME, ['--headless', '--disable-gpu', '--hide-scrollbars', `--window-size=${width},${height}`, `--force-device-scale-factor=${scale}`, `--screenshot=${png}`, `file://${file}`])
+    p.on('close', code => (rmSync(file), code === 0 ? done() : fail(new Error(`chrome failed for ${png}`))))
+  })
+
+// ---- animations: one frame per panel tick (120 ms), as the live panel redraws ----
+
+type Clip = { name: string; columns: number; frames: number; frame: (k: number) => { lines: Line[]; W: number } }
+
+const TICK = 4_000 // session time per frame in the hero clip, so timers and tokens visibly move
+
+// A live session: agents spawn, run and finish, a task completes, tokens and the meter climb.
+const hero = (k: number) => {
+  const now = NOW + k * TICK
+  const W = 128
+  const run = (id: string, name: string, model: string, effort: string, description: string, from: number, to: number | undefined, rate: number): AgentRow[] =>
+    k < from
+      ? []
+      : [{ id, name, model, effort, description, startedAt: NOW + from * TICK - 20_000, tokens: Math.round((Math.min(k, to ?? k) - from + 2) * rate), ...(to !== undefined && k >= to ? { endedAt: NOW + to * TICK } : {}) }]
+  const rows = [
+    ...run('a1', 'general-purpose', 'claude-opus-5-5', 'medium', 'Review the webhook retry plan', 0, 40, 70_000),
+    ...run('a2', 'Explore', 'claude-sonnet-5-5', 'low', 'Find every caller of signPayload', 10, undefined, 30_000),
+    ...run('a3', 'Plan', 'claude-opus-5-5', 'high', 'Draft the pull request description', 24, undefined, 45_000),
+  ]
+  const done = k >= 48
+  const list: Task[] = [
+    tasks[0]!,
+    tasks[1]!,
+    { ...tasks[2]!, status: done ? 'completed' : 'in_progress', ...(done ? { endedAt: NOW + 48 * TICK } : {}) },
+    { ...tasks[3]!, status: done ? 'in_progress' : 'pending', ...(done ? { startedAt: NOW + 48 * TICK } : {}) },
+  ]
+  const d: FixedData = {
+    ...data,
+    now,
+    usage: { ...data.usage!, contextTokens: 286_000 + k * 2_500 },
+    sessionTokens: 55_400_000 + k * 180_000,
+    cacheLeftMs: 55 * MIN + 45_000 - k * TICK,
+  }
+  const sections: Section[] = [...fixedRows(d, new Set()), ...agentSections(rows, {}, now, k, 0), taskSection(list, false, now, k)!]
+  return { lines: draw(sections, W, k, { text: ` ${ICON.skills}  2 skills ▸ `, press: 'skills' }), W }
+}
+
+// The Dumb Meter climbing from Smart to Dumb, then holding at the top.
+const meter = (k: number) => {
+  const p = Math.min(0.97, 0.05 + (k / 56) * 0.92)
+  const d: FixedData = { ...data, usage: { ...data.usage!, contextTokens: Math.round(p * 800_000) } }
+  return { lines: draw([fixedRows(d, new Set())[1]!], 96, k), W: 96 }
+}
+
+// The 5h limit at an even pace of 50% (2.5h left): usage climbs from under pace, pauses in peach, then turns rose.
+const burn = (k: number) => {
+  const percent = k < 20 ? 38 + k * 0.7 : k < 34 ? 52 : Math.min(64, 52 + (k - 34) * 1.2)
+  const d: FixedData = { ...data, usage: { ...data.usage!, fiveHour: { percent, resetsAt: NOW + 150 * MIN } } }
+  return { lines: draw([fixedRows(d, new Set())[0]!], 128, k), W: 128 }
+}
+
+// The terminal narrowing from 132 to 72 columns and widening back: cells drop out and return in order.
+const resize = (k: number) => {
+  const hold = 6
+  const steps = 20
+  const at = k < hold ? 0 : k < hold + steps ? k - hold : k < 2 * hold + steps ? steps : Math.max(0, 2 * steps + 2 * hold - k)
+  const W = 128 - at * 3
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(sec => rowWidth(sec.rows[0] ?? [])))
+  const sections: Section[] = [...fixedRows(data, planDrops(need, W)), taskSection(tasks, false, NOW, k)!]
+  return { lines: draw(sections, W, k, { text: ` ${ICON.skills}  2 skills ▸ `, press: 'skills' }), W }
+}
+
+const clips: Clip[] = [
+  { name: 'hero', columns: 132, frames: 64, frame: hero },
+  { name: 'meter', columns: 100, frames: 68, frame: meter },
+  { name: 'burn', columns: 132, frames: 56, frame: burn },
+  { name: 'resize', columns: 132, frames: 52, frame: resize },
+]
+
+const inBatches = async <T,>(items: readonly T[], size: number, run: (t: T) => Promise<void>) => {
+  for (let i = 0; i < items.length; i += size) await Promise.all(items.slice(i, i + size).map(run))
+}
+
+// ONLY=hero,meter renders just those
+const only = process.env.ONLY?.split(',')
+const wanted = (name: string) => !only || only.includes(name)
+
 mkdirSync(OUT, { recursive: true })
-for (const s of shots) {
+for (const s of shots.filter(s => wanted(s.name))) {
   const { html, width, height } = page(s)
-  const file = join(OUT, `${s.name}.html`)
-  writeFileSync(file, html)
   const png = join(OUT, `${s.name}.png`)
-  const r = spawnSync(CHROME, ['--headless', '--disable-gpu', '--hide-scrollbars', `--window-size=${width},${height}`, '--force-device-scale-factor=2', `--screenshot=${png}`, `file://${file}`])
-  if (r.status !== 0) throw new Error(`chrome failed for ${s.name}: ${r.stderr}`)
-  spawnSync('rm', [file])
+  await shoot(html, width, height, png, 2)
   console.log(`${png} (${width}×${height})`)
+}
+for (const c of clips.filter(c => wanted(c.name))) {
+  const dir = mkdtempSync(join(tmpdir(), `cli-dashboard-${c.name}-`))
+  const frames = Array.from({ length: c.frames }, (_, k) => ({ k, ...c.frame(k) }))
+  const canvas = { columns: c.columns, lines: Math.max(...frames.map(f => f.lines.length)) }
+  await inBatches(frames, 8, async f => {
+    const { html, width, height } = pageOf(f.lines, f.W, false, canvas)
+    await shoot(html, width, height, join(dir, `f${String(f.k).padStart(3, '0')}.png`), 1.5)
+  })
+  const gif = join(OUT, `${c.name}.gif`)
+  const pngs = frames.map(f => join(dir, `f${String(f.k).padStart(3, '0')}.png`))
+  const r = spawnSync('gifski', ['--fps', String(1000 / 120), '--quality', '90', '-o', gif, ...pngs])
+  rmSync(dir, { recursive: true })
+  if (r.status !== 0) throw new Error(`gifski failed for ${c.name}: ${r.stderr}`)
+  console.log(`${gif} (${c.frames} frames)`)
 }
