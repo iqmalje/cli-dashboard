@@ -83,11 +83,11 @@ async function findAgentDir($: EngineInterface) {
 }
 
 // A new session id (startup, /clear, resume) seeds the tasks and drops the old session's agents and tokens;
-// classic.SessionStart, which did this, never reaches the module.
+// classic.SessionStart, which did this, never reaches the module. Answers whether the session changed.
 async function syncSession($: EngineInterface) {
   const id = await $.session.id()
   const was = await read($, sessionId)
-  if (id === was) return
+  if (id === was) return false
   await update($, sessionId, () => id)
   await update($, agentDir, () => '')
   if (was) {
@@ -103,6 +103,7 @@ async function syncSession($: EngineInterface) {
   } catch {
     // keep the current list until the next task call
   }
+  return true
 }
 
 // Live subagent tokens: re-read each running agent's transcript (a read over 4 MiB rejects; keep the last count).
@@ -143,7 +144,6 @@ async function refreshSession($: EngineInterface) {
   if (seed) await update($, effort, v => v ?? seed)
   await refreshGit($)
   await refreshSessionName($)
-  await syncSession($)
 }
 
 export const register: Register = on => {
@@ -151,14 +151,19 @@ export const register: Register = on => {
   let poll: Timer | undefined
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'cli-dashboard-skills', description: 'Toggle the skills/plugins row in the cli-dashboard panel' })
     tick ??= $.clock.every(120, () => update($, frame, n => n + 1))
-    poll ??= $.clock.every(2000, () => refreshAgentTokens($))
+    // an in-process /resume raises no session.start and no turn until the next prompt: the poll spots the new id
+    poll ??= $.clock.every(2000, async () => {
+      if (await syncSession($).catch(() => false)) await refreshSession($).catch(() => {})
+      await refreshAgentTokens($)
+    })
     try {
       await refreshSession($)
     } catch {
       // each cell shows … until its own event fills it
     }
+    await syncSession($).catch(() => {})
+    await $.command.register({ name: 'cli-dashboard-skills', description: 'Toggle the skills/plugins row in the cli-dashboard panel' }).catch(() => {})
     return next(e)
   })
 

@@ -167,3 +167,25 @@ test('a new session id seeds tasks and clears the old agents', async ($, on) => 
   await mainStep($)
   expect(await drawn(ui)).not.toContain('agents')
 })
+
+// An in-process /resume raises no session.start and no turn until the next prompt: the 2s poll notices the
+// new session id and refreshes the panel by itself.
+test('a resumed session is picked up by the poll without a prompt', async ($, on) => {
+  let id = 's1'
+  let list = [{ id: '1', subject: 'First session task', status: 'pending' }]
+  on('session.id', () => ({ value: id }))
+  on('session.start', (_, e) => ({ cwd: (e as { cwd: string }).cwd }) as never)
+  on('tool.call', { tool: 'TaskList' }, () => ({ result: { tasks: list } }) as never)
+  const clock = mock.clock(on)
+  on('ui.render', { component: 'PromptHint' }, ($t, e) => {
+    const { Text } = $t.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  const ui = await $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
+  await $.session.start({ cwd: '/work' } as never)
+  expect(await drawn(ui)).toContain('0/1')
+  id = 's2'
+  list = [{ id: '1', subject: 'A', status: 'completed' }, { id: '2', subject: 'B', status: 'pending' }]
+  await clock.advance(2000)
+  expect(await drawn(ui)).toContain('1/2')
+})
