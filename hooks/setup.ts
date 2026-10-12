@@ -41,6 +41,11 @@ export function advance(s: Setup): Setup | null {
   return s.step >= last ? null : { ...s, step: s.step + 1 }
 }
 
-// the enabled marketplace install ("cli-dashboard@<marketplace>"); otherwise this copy was loaded from a folder (--plugin-dir)
-export const pluginId = (enabled: Readonly<Record<string, unknown>>) =>
-  Object.keys(enabled).find(k => k.startsWith('cli-dashboard@') && enabled[k] === true) ?? 'cli-dashboard@inline'
+// the enabled marketplace install ("cli-dashboard@<marketplace>"); otherwise this copy was loaded from its folder,
+// which the CLI only knows by that folder passed back as --plugin-dir
+export const configureArgv = (enabled: Readonly<Record<string, unknown>>, root: string) => {
+  const id = Object.keys(enabled).find(k => k.startsWith('cli-dashboard@') && enabled[k] === true)
+  return id
+    ? ['claude', 'plugin', 'configure', id, '--values-stdin']
+    : ['claude', '--plugin-dir', root, 'plugin', 'configure', 'cli-dashboard@inline', '--values-stdin']
+}

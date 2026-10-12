@@ -11,7 +11,7 @@ import { CHOICES, lookOf, picksFrom } from './look'
 import type { Look, Picks } from './look'
 import { agentSections, fixedRows, sessionNameFrom, skillsSection, taskSection } from './rows'
 import { sampleAgents, sampleTasks } from './sample'
-import { QUESTIONS, STEPS, advance, optKey, optValue, pick, pluginId } from './setup'
+import { QUESTIONS, STEPS, advance, configureArgv, optKey, optValue, pick } from './setup'
 import type { Setup } from './setup'
 import type { FixedData } from './rows'
 import { applyToolCall } from './tasks'
@@ -198,7 +198,7 @@ const markSeen = async ($: EngineInterface) => {
 const save = async ($: EngineInterface, picks: Picks) => {
   try {
     const enabled = ((await $.settings.read()).enabledPlugins ?? {}) as Record<string, unknown>
-    const r = await $.process.run(['claude', 'plugin', 'configure', pluginId(enabled), '--values-stdin'], { stdin: JSON.stringify(picks) })
+    const r = await $.process.run(configureArgv(enabled, $.plugin.root), { stdin: JSON.stringify(picks) })
     if (r.exitCode === 0) return
   } catch {
     // fall through to the toast

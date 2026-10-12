@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 import { picksFrom } from './look'
-import { advance, optKey, optValue, pick, pluginId } from './setup'
+import { advance, configureArgv, optKey, optValue, pick } from './setup'
 
 const start = { step: 0, picks: picksFrom({}) }
 
@@ -18,9 +18,10 @@ test('advance ends after speed, or after animation when it is off', () => {
   expect(advance({ step: 2, picks: { ...start.picks, animation: 'off' } })).toBeNull()
 })
 
-test('pluginId finds the enabled marketplace key, else the folder-loaded copy', () => {
-  expect(pluginId({ 'a@b': true, 'cli-dashboard@mine': true })).toBe('cli-dashboard@mine')
+test('configureArgv targets the enabled marketplace copy, else the folder-loaded one', () => {
+  expect(configureArgv({ 'a@b': true, 'cli-dashboard@mine': true }, '/x')).toEqual(['claude', 'plugin', 'configure', 'cli-dashboard@mine', '--values-stdin'])
   // a disabled marketplace copy is not the one running
-  expect(pluginId({ 'cli-dashboard@mine': false })).toBe('cli-dashboard@inline')
-  expect(pluginId({})).toBe('cli-dashboard@inline')
+  const inline = ['claude', '--plugin-dir', '/x', 'plugin', 'configure', 'cli-dashboard@inline', '--values-stdin']
+  expect(configureArgv({ 'cli-dashboard@mine': false }, '/x')).toEqual(inline)
+  expect(configureArgv({}, '/x')).toEqual(inline)
 })
