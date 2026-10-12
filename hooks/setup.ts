@@ -1,3 +1,6 @@
+import { width } from './format'
+import type { Line, Seg } from './frame'
+import { CHOICES, lookOf } from './look'
 import type { Picks } from './look'
 
 export const STEPS = ['theme', 'icons', 'animation', 'speed'] as const
@@ -48,4 +51,58 @@ export const configureArgv = (enabled: Readonly<Record<string, unknown>>, root: 
   return id
     ? ['claude', 'plugin', 'configure', id, '--values-stdin']
     : ['claude', '--plugin-dir', root, 'plugin', 'configure', 'cli-dashboard@inline', '--values-stdin']
+}
+
+// cut segs to `max` cells, ending in … when something was cut
+const clip = (segs: readonly Seg[], max: number): Seg[] => {
+  if (segs.reduce((n, g) => n + width(g.text), 0) <= max) return [...segs]
+  const out: Seg[] = []
+  let left = max - 1
+  for (const g of segs) {
+    if (left <= 0) break
+    const text = [...g.text].slice(0, left).join('')
+    out.push({ ...g, text })
+    left -= width(text)
+  }
+  return [...out, { text: '…' }]
+}
+
+export type SetupRow = { segs: Seg[]; choice?: string }
+
+// The pane's rows, framed to W columns (the frame takes 4): register.tsx draws them as Boxes and the README
+// render draws them as text, so the two cannot drift. `preview` is already drawn at W - 4.
+export function setupRows(s: Setup, W: number, preview: readonly Line[]): SetupRow[] {
+  const k = STEPS[s.step] ?? 'theme'
+  const q = QUESTIONS[k]
+  const look = lookOf(s.picks)
+  const inner = Math.max(0, W - 4)
+  const edge = (text: string): Seg => ({ text, color: look.border })
+  const row = (content: readonly Seg[], choice?: string): SetupRow => {
+    const segs = clip(content, inner)
+    const pad = inner - segs.reduce((n, g) => n + width(g.text), 0)
+    return { segs: [edge('│ '), ...segs, { text: ' '.repeat(pad) }, edge(' │')], ...(choice === undefined ? {} : { choice }) }
+  }
+  const blank = row([])
+  const total = s.picks.animation === 'off' ? 3 : 4
+  const title = 'cli-dashboard setup'
+  return [
+    { segs: [edge(`╭─ ${title} ${'─'.repeat(Math.max(0, W - 5 - title.length))}╮`)] },
+    row([{ text: q.title, bold: true }, { text: ` ${s.step + 1}/${total}`, dim: true }]),
+    row([{ text: q.about, dim: true }]),
+    blank,
+    ...CHOICES[k].map(v =>
+      row(
+        v === s.picks[k]
+          ? [{ text: `▸ ${v}`, bold: true, color: look.color(280) }, { text: `  ${q.hints[v]}`, dim: true }]
+          : [{ text: `  ${v}` }, { text: `  ${q.hints[v]}`, dim: true }],
+        v,
+      ),
+    ),
+    blank,
+    row([{ text: '  cancel', dim: true }], 'cancel'),
+    blank,
+    row([{ text: '↑/↓ choose · enter pick · esc cancel', dim: true }]),
+    ...preview.map(l => row(l.segs)),
+    { segs: [edge(`╰${'─'.repeat(Math.max(0, W - 2))}╯`)] },
+  ]
 }

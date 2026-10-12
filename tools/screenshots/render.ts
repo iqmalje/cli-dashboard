@@ -12,8 +12,7 @@ import { agentSections, fixedRows, skillsSection, taskSection } from '../../hook
 import type { FixedData } from '../../hooks/rows'
 import { CHOICES, lookOf, picksFrom } from '../../hooks/look'
 import type { Look, Picks } from '../../hooks/look'
-import { QUESTIONS, STEPS } from '../../hooks/setup'
-import { width } from '../../hooks/format'
+import { QUESTIONS, STEPS, setupRows } from '../../hooks/setup'
 import { MIN, sampleAgents, sampleTasks } from '../../hooks/sample'
 
 const look = lookOf(picksFrom({}))
@@ -77,10 +76,12 @@ const meterStates = (W: number): Line[] =>
 const esc = (c: string) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c)
 
 // One fixed-width box per character keeps the terminal grid even where a glyph draws wider.
-const lineHtml = (l: Line) =>
+// a focused row is drawn inverted: the cell's colour becomes its background
+type LSeg = Seg & { inverse?: boolean }
+const lineHtml = (l: { segs: readonly LSeg[] }) =>
   l.segs
     .map(seg => {
-      const style = `${seg.color ? `color:${seg.color};` : ''}${seg.dim ? 'opacity:.55;' : ''}${seg.bold ? 'font-weight:700;' : ''}`
+      const style = `${seg.inverse ? `background:${seg.color ?? DARK.fg};color:${DARK.bg};` : `${seg.color ? `color:${seg.color};` : ''}${seg.dim ? 'opacity:.55;' : ''}`}${seg.bold ? 'font-weight:700;' : ''}`
       // the meter's U+1FB0B is not in Fira Code (terminals draw it from a fallback font): draw it as the bar it is
       return [...seg.text].map(ch => (ch === '\u{1FB0B}' ? `<i class="bar" style="${style}"></i>` : `<i style="${style}">${esc(ch)}</i>`)).join('')
     })
@@ -156,41 +157,19 @@ const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns
 
 // ---- the /cli-dashboard-setup pane: question, choices and the live preview, laid out as register.tsx draws it ----
 
-const PANE = '#5a5670' // the engine's frame around a pane
 const fit = (l: Look, W: number) => {
   const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, l).map(sec => rowWidth(sec.rows[0] ?? [])))
   return fixedRows(data, planDrops(need, W), l)
 }
 
-// W is the pane's inner width; the frame adds 4 columns
+// W is the pane's full width; the draft choice is drawn focused, inverted as a terminal does
 const wizard = (step: number, picks: Picks, f: number, W: number): Line[] => {
-  const k = STEPS[step]!
-  const q = QUESTIONS[k]
   const l = lookOf(picks)
-  const total = picks.animation === 'off' ? 3 : 4
-  const body: Seg[][] = [
-    [{ text: q.title, bold: true }, { text: ` ${step + 1}/${total}`, dim: true }],
-    [{ text: q.about, dim: true }],
-    [],
-    // the terminal inverts the focused choice; drawn here in the theme's colour
-    ...CHOICES[k].map((v): Seg[] =>
-      v === picks[k] ? [{ text: `▸ ${v}`, bold: true, color: l.color(280) }, { text: `  ${q.hints[v]}`, dim: true }] : [{ text: `  ${v}` }, { text: `  ${q.hints[v]}`, dim: true }],
-    ),
-    [],
-    [{ text: '  cancel', dim: true }],
-    [],
-    [{ text: '↑/↓ choose · enter pick · esc cancel', dim: true }],
-  ]
-  const sections: Section[] = [...fit(l, W), ...agentSections(agents, {}, NOW, f, 0, l), taskSection(tasks, false, NOW, f, l)!]
-  const rows = [...body, ...draw(sections, W, f, l).map(line => [...line.segs])]
-  const title = ' cli-dashboard setup '
-  return [
-    { segs: [{ text: `╭─${title}${'─'.repeat(W + 1 - title.length)}╮`, color: PANE }] },
-    ...rows.map(segs => ({
-      segs: [{ text: '│ ', color: PANE }, ...segs, { text: ' '.repeat(Math.max(0, W - segs.reduce((n, g) => n + width(g.text), 0))) }, { text: ' │', color: PANE }],
-    })),
-    { segs: [{ text: `╰${'─'.repeat(W + 2)}╯`, color: PANE }] },
-  ]
+  const sections: Section[] = [...fit(l, W - 4), ...agentSections(agents, {}, NOW, f, 0, l), taskSection(tasks, false, NOW, f, l)!]
+  const k = STEPS[step]!
+  return setupRows({ step, picks }, W, draw(sections, W - 4, f, l)).map(r => ({
+    segs: r.choice === picks[k] ? r.segs.map((g, i, all): LSeg => (i === 0 || i === all.length - 1 ? g : { ...g, inverse: true })) : r.segs,
+  }))
 }
 
 // Each theme's two fixed rows under its name and hint
@@ -297,7 +276,7 @@ const walkStates = WALK.reduce<{ step: number; picks: Picks; hold: number }[]>((
 const walkFrames = walkStates.flatMap(st => Array.from({ length: st.hold }, () => st))
 const setup = (k: number) => {
   const st = walkFrames[k]!
-  return { lines: wizard(st.step, st.picks, k, 92), W: 96 }
+  return { lines: wizard(st.step, st.picks, k, 96), W: 96 }
 }
 
 const clips: Clip[] = [

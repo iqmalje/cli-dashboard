@@ -6,12 +6,12 @@ import { agentTokens, onPrompt, scrollBy, setEffort, setTokens, spawn, stop } fr
 import { agentDirOf, cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
 import { softLimit } from './meter'
-import type { Drop, Line } from './frame'
-import { CHOICES, lookOf, picksFrom } from './look'
+import type { Drop, Line, Seg } from './frame'
+import { lookOf, picksFrom } from './look'
 import type { Look, Picks } from './look'
 import { agentSections, fixedRows, sessionNameFrom, skillsSection, taskSection } from './rows'
 import { sampleAgents, sampleTasks } from './sample'
-import { QUESTIONS, STEPS, advance, configureArgv, optKey, optValue, pick } from './setup'
+import { STEPS, advance, configureArgv, optKey, optValue, pick, setupRows } from './setup'
 import type { Setup } from './setup'
 import type { FixedData } from './rows'
 import { applyToolCall } from './tasks'
@@ -500,41 +500,49 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const s = await read($, setup)
     if (!s) return <Text> </Text>
-    const k = STEPS[s.step] ?? 'theme'
-    const q = QUESTIONS[k]
     const look = lookOf(s.picks)
     const W = (e.props as { bodyColumns?: number } | undefined)?.bodyColumns ?? (e.viewport?.columns ?? 80) - HINT_MARGIN
+    const inner = W - 4
     const now = await $.clock.now()
     const f = await read($, frame)
     const sections = [
-      ...fixedFit(await fixedData($, now, userLimit), W, look),
+      ...fixedFit(await fixedData($, now, userLimit), inner, look),
       ...agentSections(sampleAgents(now), {}, now, f, 0, look),
       taskSection(sampleTasks(now), false, now, f, look)!,
     ]
-    const total = s.picks.animation === 'off' ? 3 : 4
+    const segText = (segs: readonly Seg[]) => segs.map(g => (
+      <Text color={g.color} dimColor={g.dim} bold={g.bold}>
+        {g.text}
+      </Text>
+    ))
+    const rows = setupRows(s, W, draw(sections, inner, f, look))
     return (
       <Box flexDirection="column">
-        <Text bold>
-          {q.title} <Text dimColor>{s.step + 1}/{total}</Text>
-        </Text>
-        <Text dimColor wrap="truncate-end">{q.about}</Text>
-        <Text> </Text>
-        {CHOICES[k].map(v => (
-          <Button key={optKey(s.step, v)} plain autoFocus={s.step === 0 && v === s.picks[k] ? true : undefined} onPress={() => void choose($, options, v)}>
-            <Text wrap="truncate-end">
-              {v === s.picks[k] ? '▸ ' : '  '}
-              {v}
-              <Text dimColor>  {q.hints[v]}</Text>
-            </Text>
-          </Button>
-        ))}
-        <Text> </Text>
-        <Button key="cancel" plain onPress={() => void cancel($, options)}>
-          <Text dimColor>  cancel</Text>
-        </Button>
-        <Text> </Text>
-        <Text dimColor wrap="truncate-end">↑/↓ choose · enter pick · esc cancel</Text>
-        {draw(sections, W, f, look).map(l => lineText(Text, l))}
+        {rows.map((r, i) => {
+          // the top and bottom borders are one seg; the others are │ content │
+          if (r.segs.length === 1) return <Text>{segText(r.segs)}</Text>
+          const content = r.segs.slice(1, -1)
+          const body =
+            r.choice === undefined ? (
+              <Text>{segText(content)}</Text>
+            ) : (
+              <Button
+                key={r.choice === 'cancel' ? 'cancel' : optKey(s.step, r.choice)}
+                plain
+                autoFocus={s.step === 0 && r.choice === s.picks.theme ? true : undefined}
+                onPress={() => void (r.choice === 'cancel' ? cancel($, options) : choose($, options, r.choice!))}
+              >
+                <Text>{segText(content)}</Text>
+              </Button>
+            )
+          return (
+            <Box flexDirection="row">
+              <Text>{segText(r.segs.slice(0, 1))}</Text>
+              {body}
+              <Text>{segText(r.segs.slice(-1))}</Text>
+            </Box>
+          )
+        })}
       </Box>
     )
   })

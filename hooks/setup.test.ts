@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import { picksFrom } from './look'
-import { advance, configureArgv, optKey, optValue, pick } from './setup'
+import { width } from './format'
+import { advance, setupRows, configureArgv, optKey, optValue, pick } from './setup'
 
 const start = { step: 0, picks: picksFrom({}) }
 
@@ -24,4 +25,26 @@ test('configureArgv targets the enabled marketplace copy, else the folder-loaded
   const inline = ['claude', '--plugin-dir', '/x', 'plugin', 'configure', 'cli-dashboard@inline', '--values-stdin']
   expect(configureArgv({ 'cli-dashboard@mine': false }, '/x')).toEqual(inline)
   expect(configureArgv({}, '/x')).toEqual(inline)
+})
+
+const text = (r: { segs: readonly { text: string }[] }) => r.segs.map(g => g.text).join('')
+const preview = [{ segs: [{ text: '╭' + '─'.repeat(30) + '╮' }] }]
+
+test('setupRows: every row is exactly W wide, framed, with the draft choice marked', () => {
+  for (const W of [60, 100]) {
+    const rows = setupRows(start, W, preview)
+    for (const r of rows) expect(width(text(r))).toBe(W)
+    expect(text(rows[0]!)).toContain('cli-dashboard setup')
+    expect(text(rows[0]!).startsWith('╭')).toBe(true)
+    expect(text(rows.at(-1)!).startsWith('╰')).toBe(true)
+    expect(text(rows.find(r => r.choice === 'pastel')!)).toMatch(/^│ ▸ pastel/)
+    expect(text(rows.find(r => r.choice === 'rainbow')!)).toMatch(/^│   rainbow/)
+    expect(rows.some(r => r.choice === 'cancel')).toBe(true)
+  }
+})
+
+test('setupRows: long hints are cut with … at a small W and rows stay W wide', () => {
+  const rows = setupRows(start, 30, preview)
+  for (const r of rows) expect(width(text(r))).toBe(30)
+  expect(text(rows.find(r => r.choice === 'mono')!)).toContain('…')
 })
