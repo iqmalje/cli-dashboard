@@ -50,10 +50,11 @@ const tasks: Task[] = [
   { id: '4', subject: 'Open the pull request', status: 'pending' },
 ]
 
-type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; skills: boolean; notes: boolean }
+type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; skills: boolean; notes: boolean; lines?: (W: number) => Line[] }
 
 const panel = (s: Shot): Line[] => {
   const W = s.columns - 4 // the hint line is 4 columns narrower than the terminal
+  if (s.lines) return s.lines(W)
   const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(sec => rowWidth(sec.rows[0] ?? [])))
   const drops = planDrops(need, W)
   const skillList = ['superpowers:brainstorming', 'simplify']
@@ -66,6 +67,13 @@ const panel = (s: Shot): Line[] => {
   const caption = { text: ` ${ICON.skills}  ${skillList.length} skills ${s.skills ? '▾' : '▸'} `, press: 'skills' }
   return draw(sections, W, 10, caption)
 }
+
+// The Dumb Meter row alone, once per state, from Smart to Dumb
+const meterStates = (W: number): Line[] =>
+  [0.12, 0.38, 0.6, 0.8, 0.96].flatMap(f => {
+    const d: FixedData = { ...data, usage: { ...data.usage!, contextTokens: Math.round(f * 800_000) } }
+    return draw([fixedRows(d, new Set())[1]!], W, 3)
+  })
 
 const esc = (c: string) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c)
 
@@ -148,6 +156,7 @@ const shots: Shot[] = [
   { name: 'full', columns: 132, agents: true, tasks: true, skills: true, notes: true },
   { name: 'partial', columns: 112, agents: false, tasks: true, skills: false, notes: false },
   { name: 'shrunken', columns: 76, agents: false, tasks: false, skills: false, notes: false },
+  { name: 'meter', columns: 100, agents: false, tasks: false, skills: false, notes: false, lines: meterStates },
 ]
 
 mkdirSync(OUT, { recursive: true })
