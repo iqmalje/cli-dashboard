@@ -1,5 +1,5 @@
 // Renders the README screenshots and GIFs from the mod's own drawing code: bun tools/screenshots/render.ts
-// Needs Google Chrome, gifski and FiraCode Nerd Font installed. Writes docs/images/*.png and *.gif.
+// Needs Google Chrome (or Chromium), gifski and FiraCode Nerd Font installed; CHROME and FONTS point elsewhere than macOS. Writes docs/images/*.png and *.gif.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -7,10 +7,13 @@ import { spawn, spawnSync } from 'node:child_process'
 
 import type { AgentRow, Task } from '../../types'
 import { draw, planDrops, rowWidth } from '../../hooks/frame'
-import type { Drop, Line, Section } from '../../hooks/frame'
+import type { Drop, Line, Section, Seg } from '../../hooks/frame'
 import { agentSections, fixedRows, skillsSection, taskSection } from '../../hooks/rows'
 import type { FixedData } from '../../hooks/rows'
-import { lookOf, picksFrom } from '../../hooks/look'
+import { CHOICES, lookOf, picksFrom } from '../../hooks/look'
+import type { Look, Picks } from '../../hooks/look'
+import { QUESTIONS, STEPS } from '../../hooks/setup'
+import { width } from '../../hooks/format'
 import { MIN, sampleAgents, sampleTasks } from '../../hooks/sample'
 
 const look = lookOf(picksFrom({}))
@@ -45,7 +48,8 @@ const data: FixedData = {
 const agents = sampleAgents(NOW)
 const tasks = sampleTasks(NOW)
 
-type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; skills: boolean; notes: boolean; lines?: (W: number) => Line[] }
+type Colors = { bg: string; fg: string }
+type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; skills: boolean; notes: boolean; lines?: (W: number) => Line[]; colors?: Colors }
 
 const panel = (s: Shot): Line[] => {
   const W = s.columns - 4 // the hint line is 4 columns narrower than the terminal
@@ -104,10 +108,11 @@ const cellNotes = (lines: Line[]) => {
   return bars.slice(0, -1).map((x, k) => ({ from: x + 1, to: bars[k + 1]! - 1, name: names[k] ?? '' }))
 }
 
-const page = (s: Shot) => pageOf(panel(s), s.columns - 4, s.notes)
+const page = (s: Shot) => pageOf(panel(s), s.columns - 4, s.notes, undefined, s.colors)
 
 // A fixed canvas (width in columns, height in lines) keeps every frame of a GIF the same size.
-const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns: number; lines: number }) => {
+const DARK: Colors = { bg: '#1d1b26', fg: '#e4e1f0' }
+const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns: number; lines: number }, colors: Colors = DARK) => {
   const s = { notes: withNotes }
   const top = s.notes ? 64 : 24
   const left = 24
@@ -136,8 +141,8 @@ const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns
   const html = `<!doctype html><meta charset="utf-8"><style>
     @font-face { font-family: T; src: url("file://${FONTS}/FiraCodeNerdFont-Regular.ttf"); }
     @font-face { font-family: T; font-weight: 700; src: url("file://${FONTS}/FiraCodeNerdFont-Bold.ttf"); }
-    html, body { margin: 0; width: ${width}px; height: ${height}px; background: #1d1b26; overflow: hidden; }
-    .ln { position: absolute; left: ${left}px; height: ${LINE_H}px; line-height: ${LINE_H}px; white-space: pre; font: 15px T, monospace; color: #e4e1f0; }
+    html, body { margin: 0; width: ${width}px; height: ${height}px; background: ${colors.bg}; overflow: hidden; }
+    .ln { position: absolute; left: ${left}px; height: ${LINE_H}px; line-height: ${LINE_H}px; white-space: pre; font: 15px T, monospace; color: ${colors.fg}; }
     .ln i { font-style: normal; display: inline-block; width: ${CELL_W}px; text-align: left; overflow: visible; }
     .ln i.bar { height: ${LINE_H}px; vertical-align: top; background: linear-gradient(currentColor, currentColor) center / 100% 4px no-repeat; }
     .br { position: absolute; width: 8px; border: 2px solid; border-left: 0; border-radius: 0 6px 6px 0; }
@@ -149,11 +154,63 @@ const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns
   return { html, width, height }
 }
 
+// ---- the /cli-dashboard-setup pane: question, choices and the live preview, laid out as register.tsx draws it ----
+
+const PANE = '#5a5670' // the engine's frame around a pane
+const fit = (l: Look, W: number) => {
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, l).map(sec => rowWidth(sec.rows[0] ?? [])))
+  return fixedRows(data, planDrops(need, W), l)
+}
+
+// W is the pane's inner width; the frame adds 4 columns
+const wizard = (step: number, picks: Picks, f: number, W: number): Line[] => {
+  const k = STEPS[step]!
+  const q = QUESTIONS[k]
+  const l = lookOf(picks)
+  const total = picks.animation === 'off' ? 3 : 4
+  const body: Seg[][] = [
+    [{ text: q.title, bold: true }, { text: ` ${step + 1}/${total}`, dim: true }],
+    [{ text: q.about, dim: true }],
+    [],
+    // the terminal inverts the focused choice; drawn here in the theme's colour
+    ...CHOICES[k].map((v): Seg[] =>
+      v === picks[k] ? [{ text: `▸ ${v}`, bold: true, color: l.color(280) }, { text: `  ${q.hints[v]}`, dim: true }] : [{ text: `  ${v}` }, { text: `  ${q.hints[v]}`, dim: true }],
+    ),
+    [],
+    [{ text: '  cancel', dim: true }],
+    [],
+    [{ text: '↑/↓ choose · enter pick · esc cancel', dim: true }],
+  ]
+  const sections: Section[] = [...fit(l, W), ...agentSections(agents, {}, NOW, f, 0, l), taskSection(tasks, false, NOW, f, l)!]
+  const rows = [...body, ...draw(sections, W, f, l).map(line => [...line.segs])]
+  const title = ' cli-dashboard setup '
+  return [
+    { segs: [{ text: `╭─${title}${'─'.repeat(W + 1 - title.length)}╮`, color: PANE }] },
+    ...rows.map(segs => ({
+      segs: [{ text: '│ ', color: PANE }, ...segs, { text: ' '.repeat(Math.max(0, W - segs.reduce((n, g) => n + width(g.text), 0))) }, { text: ' │', color: PANE }],
+    })),
+    { segs: [{ text: `╰${'─'.repeat(W + 2)}╯`, color: PANE }] },
+  ]
+}
+
+// Each theme's two fixed rows under its name and hint
+const themeRows = (names: readonly Picks['theme'][]) => (W: number): Line[] =>
+  names.flatMap((theme, i) => {
+    const l = lookOf(picksFrom({ theme }))
+    return [
+      ...(i > 0 ? [{ segs: [{ text: '' }] }] : []),
+      { segs: [{ text: theme, bold: true }, { text: `  ${QUESTIONS.theme.hints[theme]}`, dim: true }] },
+      ...draw(fit(l, W), W, 4, l),
+    ]
+  })
+
 const shots: Shot[] = [
   { name: 'full', columns: 132, agents: true, tasks: true, skills: true, notes: true },
   { name: 'partial', columns: 112, agents: false, tasks: true, skills: false, notes: false },
   { name: 'shrunken', columns: 76, agents: false, tasks: false, skills: false, notes: false },
   { name: 'meter', columns: 100, agents: false, tasks: false, skills: false, notes: false, lines: meterStates },
+  { name: 'themes', columns: 112, agents: false, tasks: false, skills: false, notes: false, lines: themeRows(['pastel', 'rainbow', 'mono', 'high-contrast']) },
+  { name: 'theme-light', columns: 112, agents: false, tasks: false, skills: false, notes: false, lines: themeRows(['light']), colors: { bg: '#f6f4fa', fg: '#2a2733' } },
 ]
 
 const shoot = (html: string, width: number, height: number, png: string, scale: number) =>
@@ -226,11 +283,29 @@ const resize = (k: number) => {
   return { lines: draw(sections, W, k, look, { text: ` ${look.icon.skills}  2 skills ▸ `, press: 'skills' }), W }
 }
 
+// Walking the setup wizard: the preview follows each highlighted choice, enter moves on.
+const WALK: [number, string, number][] = [
+  [0, 'pastel', 10], [0, 'rainbow', 10], [0, 'mono', 10], [0, 'light', 10], [0, 'high-contrast', 10], [0, 'rainbow', 14],
+  [1, 'nerd', 10], [1, 'plain', 12], [1, 'nerd', 12],
+  [2, 'full', 10], [2, 'calm', 12], [2, 'full', 12],
+  [3, '1x', 12], [3, '0.5x', 14], [3, '2x', 18],
+]
+const walkStates = WALK.reduce<{ step: number; picks: Picks; hold: number }[]>((acc, [step, value, hold]) => {
+  const prev = acc.at(-1)?.picks ?? picksFrom({})
+  return [...acc, { step, picks: { ...prev, [STEPS[step]!]: value } as Picks, hold }]
+}, [])
+const walkFrames = walkStates.flatMap(st => Array.from({ length: st.hold }, () => st))
+const setup = (k: number) => {
+  const st = walkFrames[k]!
+  return { lines: wizard(st.step, st.picks, k, 92), W: 96 }
+}
+
 const clips: Clip[] = [
   { name: 'hero', columns: 132, frames: 64, frame: hero },
   { name: 'meter', columns: 100, frames: 68, frame: meter },
   { name: 'burn', columns: 132, frames: 56, frame: burn },
   { name: 'resize', columns: 132, frames: 52, frame: resize },
+  { name: 'setup', columns: 100, frames: walkFrames.length, frame: setup },
 ]
 
 const inBatches = async <T,>(items: readonly T[], size: number, run: (t: T) => Promise<void>) => {

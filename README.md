@@ -117,6 +117,8 @@ The gradient runs from Smart's green to the colour of the current state and flow
 
 Run `/cli-dashboard-setup`. A pane opens and asks four questions, one at a time, with a live preview of your panel under each:
 
+<p align="center"><img src="docs/images/setup.gif" alt="The setup wizard: the highlight moves through the themes while the preview below repaints in each, then the icons, animation and colour animation speed questions" width="720"></p>
+
 | Question | Choices |
 | --- | --- |
 | **Theme** | `pastel` soft, recommended · `rainbow` bold and saturated · `mono` one calm colour · `light` for light terminal backgrounds · `high-contrast` brightest on dark backgrounds |
@@ -127,6 +129,17 @@ Run `/cli-dashboard-setup`. A pane opens and asks four questions, one at a time,
 ↑ / ↓ move through the choices and the preview follows. **Enter** picks and moves on, and **Esc** cancels without saving anything. After the last question your picks are saved, a toast confirms them, and the panel switches at once.
 
 You can change any of them later the same way, or one at a time in `/config` (see [Settings](#settings)).
+
+<details>
+<summary><b>The themes side by side</b></summary>
+
+<p align="center"><img src="docs/images/themes.png" alt="The two fixed rows in the pastel, rainbow, mono and high-contrast themes" width="100%"></p>
+
+`light` is made for light terminal backgrounds:
+
+<p align="center"><img src="docs/images/theme-light.png" alt="The two fixed rows in the light theme on a light background" width="100%"></p>
+
+</details>
 
 `mono` draws everything in one colour, so the burn-rate warning colours and the meter's state colours go with it.
 
@@ -340,14 +353,14 @@ npx -p typescript tsc --noEmit -p .
 
 `tsconfig.json` extends `.claude-plugin/types/tsconfig.json`. Claude Code writes that folder (the engine's API types) the first time it loads the mod, so start one session with the mod installed before you type-check. It is git-ignored.
 
-Regenerate the README images after a visual change (needs [Bun](https://bun.sh), Google Chrome, [gifski](https://gif.ski) (`brew install gifski`) and FiraCode Nerd Font):
+Regenerate the README images after a visual change (needs [Bun](https://bun.sh), Google Chrome or Chromium, [gifski](https://gif.ski) (`brew install gifski`) and FiraCode Nerd Font):
 
 ```sh
 bun tools/screenshots/render.ts
 ONLY=hero,burn bun tools/screenshots/render.ts   # just these
 ```
 
-The script draws the panel with the mod's own code and writes `docs/images/`: the full, partial and shrunken panels and the meter's states as PNGs, and the hero, meter, burn-rate and resize animations as GIFs, one frame per 120 ms panel tick. A full run takes about two minutes. The data in it is made up. The paths default to macOS. Set `CHROME` to the Chrome binary and `FONTS` to the folder holding `FiraCodeNerdFont-Regular.ttf` and `-Bold.ttf` to render elsewhere.
+The script draws the panel with the mod's own code and writes `docs/images/`: the full, partial and shrunken panels, the meter's states, the setup pane and the themes as PNGs, and the hero, meter, burn-rate, resize and setup animations as GIFs, one frame per 120 ms panel tick. A full run takes about two minutes. The data in it is made up. The paths default to macOS. Set `CHROME` to the Chrome or Chromium binary and `FONTS` to the folder holding `FiraCodeNerdFont-Regular.ttf` and `-Bold.ttf` to render elsewhere (Linux and WSL work too).
 
 ### A note on events
 
