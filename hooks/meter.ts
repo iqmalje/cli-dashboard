@@ -4,11 +4,11 @@ export const SOFT_LIMIT = 800_000
 export const OLDER_SOFT_LIMIT = 512_000
 
 export const STATES = [
-  { name: 'Smart', icon: '\u{F09D1}', hue: 160 },
-  { name: 'Coasting', icon: '\u{F015F}', hue: 230 },
-  { name: 'Foggy', icon: '\u{F0591}', hue: 95 },
-  { name: 'Cooked', icon: '\u{F0238}', hue: 55 },
-  { name: 'Dumb', icon: '\u{F068C}', hue: 10 },
+  { name: 'Smart', hue: 160 },
+  { name: 'Coasting', hue: 230 },
+  { name: 'Foggy', hue: 95 },
+  { name: 'Cooked', hue: 55 },
+  { name: 'Dumb', hue: 10 },
 ] as const
 
 export type DumbState = (typeof STATES)[number]

@@ -206,3 +206,141 @@ test('the meter uses the default soft limit when the option is unset', async ($,
 test('the softLimit option sets the meter', { options: { softLimit: 400_000 } }, async ($, on) => {
   expect(await measured($, on)).toContain('Cooked')
 })
+
+// ---- /cli-dashboard-setup: a focused pane with one question and a live preview ----
+
+// the ring landing on a choice, as ↑/↓ do: the engine's ui.focus shape (the kit passes the argument on as the event)
+const focus = async ($: Engine, wizard: { redraw: () => Promise<void> }, element: string) => {
+  await $.ui.focus({ component: 'Pane', requestId: 'setup', element, origin: { kind: 'person' } } as never)
+  await wizard.redraw()
+}
+
+const pane = async ($: Engine, on: On, runs: { argv: readonly string[]; stdin?: string }[] = [], store: Record<string, unknown> = {}) => {
+  mock.clock(on)
+  mock.store(on, store)
+  on('process.run', (_, e) => {
+    runs.push({ argv: e.argv, stdin: e.init?.stdin })
+    return { value: { exitCode: 0, stdout: '', stderr: '' } } as never
+  })
+  on('session.start', (_, e) => ({ cwd: (e as { cwd: string }).cwd }) as never)
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.focus', () => ({}) as never)
+  on('ui.close', () => ({ value: undefined }) as never)
+  on('settings.read', () => ({ value: { enabledPlugins: { 'cli-dashboard@mine': true } } }) as never)
+  on('ui.render', { component: 'PromptHint' }, ($t, e) => {
+    const { Text } = $t.ui.resolve(e)
+    return <Text>engine</Text>
+  })
+  const panel = await $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'PromptHint', props: PROPS, viewport: { columns: 160, rows: 40 } as never })
+  await $.session.start({ cwd: '/work' } as never)
+  await $.command.run({ command: 'cli-dashboard-setup' } as never)
+  const wizard = await $.ui.mount({ plugin: 'cli-dashboard', surface: 'terminal', component: 'Pane', requestId: 'setup', props: { bodyColumns: 120, isFocused: true, title: 'setup' } as never, viewport: { columns: 160, rows: 40 } as never })
+  return { panel, wizard }
+}
+
+type Ran = { argv: readonly string[]; stdin?: string }[]
+const saved = (runs: Ran) => runs.filter(r => r.stdin)
+
+test('the command opens the setup pane on the first question', async ($, on) => {
+  const { wizard } = await pane($, on)
+  const out = await drawn(wizard)
+  expect(out).toContain('Theme 1/4')
+  expect(out).toContain("Colours for the panel's icons, values and border.")
+  expect(out).toContain('▸ pastel  soft · recommended')
+  expect(out).toContain('  high-contrast  brightest on dark backgrounds')
+  expect(out).toContain('↑/↓ choose · enter pick · esc cancel')
+})
+
+test('every question draws its title and description', async ($, on) => {
+  const { wizard } = await pane($, on)
+  const steps = [
+    ['opt-theme-pastel', 'Icons 2/4', 'Nerd Font glyphs, or plain symbols if you see boxes.'],
+    ['opt-icons-nerd', 'Animation 3/4', 'What moves on the panel.'],
+    ['opt-animation-full', 'Colour animation speed 4/4', 'How fast the meter gradient and agent colours shift. The spinner keeps its pace.'],
+  ] as const
+  for (const [key, title, about] of steps) {
+    await wizard.press({ key })
+    const out = await drawn(wizard)
+    expect(out).toContain(title)
+    expect(out).toContain(about)
+  }
+})
+
+test('focusing a choice changes the preview', async ($, on) => {
+  const { wizard } = await pane($, on)
+  const before = JSON.stringify(await wizard.drawn())
+  await focus($, wizard, 'opt-theme-rainbow')
+  expect(await drawn(wizard)).toContain('▸ rainbow')
+  expect(JSON.stringify(await wizard.drawn())).not.toBe(before)
+})
+
+test('pressing a choice picks it and advances', async ($, on) => {
+  const { wizard } = await pane($, on)
+  await wizard.press({ key: 'opt-theme-mono' })
+  const out = await drawn(wizard)
+  expect(out).toContain('Icons 2/4')
+  expect(out).toContain('▸ nerd')
+})
+
+test('pressing a choice on the last step saves the picks and the Panel then draws with them', async ($, on) => {
+  const runs: Ran = []
+  const toasts: string[] = []
+  on('ui.toast', (_, e) => (toasts.push((e as { text: string }).text), { value: undefined }) as never)
+  const { panel, wizard } = await pane($, on, runs)
+  await wizard.press({ key: 'opt-theme-rainbow' })
+  await wizard.press({ key: 'opt-icons-plain' })
+  await wizard.press({ key: 'opt-animation-full' })
+  await wizard.press({ key: 'opt-speed-2x' })
+  expect(saved(runs)).toHaveLength(1)
+  expect(saved(runs)[0]!.argv).toEqual(['claude', 'plugin', 'configure', 'cli-dashboard@mine', '--values-stdin'])
+  expect(JSON.parse(saved(runs)[0]!.stdin!)).toEqual({ theme: 'rainbow', icons: 'plain', animation: 'full', speed: '2x' })
+  expect(await drawn(panel)).toContain('✱')
+  expect(toasts).toEqual(['cli-dashboard: saved rainbow · plain icons · full · 2x'])
+})
+
+test('animation off makes the total 3 and skips speed', async ($, on) => {
+  const runs: Ran = []
+  const { wizard } = await pane($, on, runs)
+  await wizard.press({ key: 'opt-theme-pastel' })
+  await wizard.press({ key: 'opt-icons-nerd' })
+  await focus($, wizard, 'opt-animation-off')
+  expect(await drawn(wizard)).toContain('Animation 3/3')
+  await wizard.press({ key: 'opt-animation-off' })
+  expect(JSON.parse(saved(runs)[0]!.stdin!)).toEqual({ theme: 'pastel', icons: 'nerd', animation: 'off', speed: '1x' })
+})
+
+test('a session.start reload drops the picks saved this session', async ($, on) => {
+  const { panel, wizard } = await pane($, on)
+  await wizard.press({ key: 'opt-theme-pastel' })
+  await wizard.press({ key: 'opt-icons-plain' })
+  await wizard.press({ key: 'opt-animation-full' })
+  await wizard.press({ key: 'opt-speed-1x' })
+  expect(await drawn(panel)).toContain('✱')
+  await $.session.start({ cwd: '/work' } as never)
+  expect(await drawn(panel)).not.toContain('✱')
+})
+
+// The kit cannot raise a person's Esc (ui.close with origin person); the cancel Button runs the same closeWizard
+test('cancel saves nothing, leaves the Panel as it was and clears the hint', async ($, on) => {
+  const runs: Ran = []
+  const { panel, wizard } = await pane($, on, runs)
+  await wizard.press({ key: 'opt-theme-pastel' })
+  await focus($, wizard, 'opt-icons-plain') // in the draft only
+  await wizard.press({ key: 'cancel' })
+  expect(saved(runs)).toHaveLength(0)
+  const out = await drawn(panel)
+  expect(out).not.toContain('✱')
+  expect(out).not.toContain('/cli-dashboard-setup')
+})
+
+test('the setup hint shows until the wizard is finished', async ($, on) => {
+  const { panel, wizard } = await pane($, on)
+  expect(await drawn(panel)).toContain('/cli-dashboard-setup')
+  for (const k of ['opt-theme-pastel', 'opt-icons-nerd', 'opt-animation-full', 'opt-speed-1x']) await wizard.press({ key: k })
+  expect(await drawn(panel)).not.toContain('/cli-dashboard-setup')
+})
+
+test('the hint stays hidden once the store says it was seen', async ($, on) => {
+  const { panel } = await pane($, on, [], { setupSeen: true })
+  expect(await drawn(panel)).not.toContain('/cli-dashboard-setup')
+})

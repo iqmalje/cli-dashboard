@@ -1,15 +1,21 @@
 // Renders the README screenshots and GIFs from the mod's own drawing code: bun tools/screenshots/render.ts
-// Needs Google Chrome, gifski and FiraCode Nerd Font installed. Writes docs/images/*.png and *.gif.
+// Needs Google Chrome (or Chromium), gifski and FiraCode Nerd Font installed; CHROME and FONTS point elsewhere than macOS. Writes docs/images/*.png and *.gif.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 
 import type { AgentRow, Task } from '../../types'
-import { BORDER, draw, planDrops, rowWidth } from '../../hooks/frame'
-import type { Drop, Line, Section } from '../../hooks/frame'
-import { agentSections, fixedRows, ICON, skillsSection, taskSection } from '../../hooks/rows'
+import { draw, planDrops, rowWidth } from '../../hooks/frame'
+import type { Drop, Line, Section, Seg } from '../../hooks/frame'
+import { agentSections, fixedRows, skillsSection, taskSection } from '../../hooks/rows'
 import type { FixedData } from '../../hooks/rows'
+import { CHOICES, lookOf, picksFrom } from '../../hooks/look'
+import type { Look, Picks } from '../../hooks/look'
+import { QUESTIONS, STEPS, setupRows } from '../../hooks/setup'
+import { MIN, sampleAgents, sampleTasks } from '../../hooks/sample'
+
+const look = lookOf(picksFrom({}))
 
 const ROOT = resolve(import.meta.dir, '../..')
 const OUT = join(ROOT, 'docs/images')
@@ -17,7 +23,6 @@ const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/M
 const FONTS = process.env.FONTS ?? join(process.env.HOME ?? '', 'Library/Fonts')
 const CELL_W = 9 // px per terminal column at font-size 15px
 const LINE_H = 20
-const MIN = 60_000
 const NOW = 1_800_000_000_000
 
 const data: FixedData = {
@@ -39,51 +44,44 @@ const data: FixedData = {
   softLimit: 800_000,
 }
 
-const agents: AgentRow[] = [
-  { id: 'a1', name: 'general-purpose', model: 'claude-opus-5-5', effort: 'medium', description: 'Final review: webhook retry plan', startedAt: NOW - 4.6 * MIN, tokens: 3_900_000 },
-  { id: 'a2', name: 'Explore', model: 'claude-sonnet-5-5', effort: 'low', description: 'Find every caller of signPayload', startedAt: NOW - 1.2 * MIN, tokens: 410_000 },
-  { id: 'a3', name: 'general-purpose', model: 'claude-opus-5-5', effort: 'medium', description: 'Review Task A6', startedAt: NOW - 6 * MIN, endedAt: NOW - 3.8 * MIN, tokens: 1_600_000 },
-]
+const agents = sampleAgents(NOW)
+const tasks = sampleTasks(NOW)
 
-const tasks: Task[] = [
-  { id: '1', subject: 'Add retry backoff to the webhook sender', status: 'completed', startedAt: NOW - 40 * MIN, endedAt: NOW - 25 * MIN },
-  { id: '2', subject: 'Cover the backoff with tests', status: 'completed', startedAt: NOW - 25 * MIN, endedAt: NOW - 12 * MIN },
-  { id: '3', subject: 'Final whole-branch review', status: 'in_progress', startedAt: NOW - 5 * MIN },
-  { id: '4', subject: 'Open the pull request', status: 'pending' },
-]
-
-type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; skills: boolean; notes: boolean; lines?: (W: number) => Line[] }
+type Colors = { bg: string; fg: string }
+type Shot = { name: string; columns: number; agents: boolean; tasks: boolean; skills: boolean; notes: boolean; lines?: (W: number) => Line[]; colors?: Colors }
 
 const panel = (s: Shot): Line[] => {
   const W = s.columns - 4 // the hint line is 4 columns narrower than the terminal
   if (s.lines) return s.lines(W)
-  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(sec => rowWidth(sec.rows[0] ?? [])))
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, look).map(sec => rowWidth(sec.rows[0] ?? [])))
   const drops = planDrops(need, W)
   const skillList = ['superpowers:brainstorming', 'simplify']
   const sections: Section[] = [
-    ...fixedRows(data, drops),
-    ...(s.agents ? agentSections(agents, {}, NOW, 4, 0) : []),
-    ...(s.tasks ? [taskSection(tasks, false, NOW, 4)!] : []),
-    ...(s.skills ? [skillsSection(skillList, ['superpowers', 'cli-dashboard', 'codex'])] : []),
+    ...fixedRows(data, drops, look),
+    ...(s.agents ? agentSections(agents, {}, NOW, 4, 0, look) : []),
+    ...(s.tasks ? [taskSection(tasks, false, NOW, 4, look)!] : []),
+    ...(s.skills ? [skillsSection(skillList, ['superpowers', 'cli-dashboard', 'codex'], look)] : []),
   ]
-  const caption = { text: ` ${ICON.skills}  ${skillList.length} skills ${s.skills ? '▾' : '▸'} `, press: 'skills' }
-  return draw(sections, W, 10, caption)
+  const caption = { text: ` ${look.icon.skills}  ${skillList.length} skills ${s.skills ? '▾' : '▸'} `, press: 'skills' }
+  return draw(sections, W, 10, look, caption)
 }
 
 // The Dumb Meter row alone, once per state, from Smart to Dumb
 const meterStates = (W: number): Line[] =>
   [0.12, 0.38, 0.6, 0.8, 0.96].flatMap(f => {
     const d: FixedData = { ...data, usage: { ...data.usage!, contextTokens: Math.round(f * 800_000) } }
-    return draw([fixedRows(d, new Set())[1]!], W, 3)
+    return draw([fixedRows(d, new Set(), look)[1]!], W, 3, look)
   })
 
 const esc = (c: string) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c)
 
 // One fixed-width box per character keeps the terminal grid even where a glyph draws wider.
-const lineHtml = (l: Line) =>
+// a focused row is drawn inverted: the cell's colour becomes its background
+type LSeg = Seg & { inverse?: boolean }
+const lineHtml = (l: { segs: readonly LSeg[] }) =>
   l.segs
     .map(seg => {
-      const style = `${seg.color ? `color:${seg.color};` : ''}${seg.dim ? 'opacity:.55;' : ''}${seg.bold ? 'font-weight:700;' : ''}`
+      const style = `${seg.inverse ? `background:${seg.color ?? DARK.fg};color:${DARK.bg};` : `${seg.color ? `color:${seg.color};` : ''}${seg.dim ? 'opacity:.55;' : ''}`}${seg.bold ? 'font-weight:700;' : ''}`
       // the meter's U+1FB0B is not in Fira Code (terminals draw it from a fallback font): draw it as the bar it is
       return [...seg.text].map(ch => (ch === '\u{1FB0B}' ? `<i class="bar" style="${style}"></i>` : `<i style="${style}">${esc(ch)}</i>`)).join('')
     })
@@ -111,10 +109,11 @@ const cellNotes = (lines: Line[]) => {
   return bars.slice(0, -1).map((x, k) => ({ from: x + 1, to: bars[k + 1]! - 1, name: names[k] ?? '' }))
 }
 
-const page = (s: Shot) => pageOf(panel(s), s.columns - 4, s.notes)
+const page = (s: Shot) => pageOf(panel(s), s.columns - 4, s.notes, undefined, s.colors)
 
 // A fixed canvas (width in columns, height in lines) keeps every frame of a GIF the same size.
-const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns: number; lines: number }) => {
+const DARK: Colors = { bg: '#1d1b26', fg: '#e4e1f0' }
+const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns: number; lines: number }, colors: Colors = DARK) => {
   const s = { notes: withNotes }
   const top = s.notes ? 64 : 24
   const left = 24
@@ -143,24 +142,54 @@ const pageOf = (lines: Line[], W: number, withNotes: boolean, canvas?: { columns
   const html = `<!doctype html><meta charset="utf-8"><style>
     @font-face { font-family: T; src: url("file://${FONTS}/FiraCodeNerdFont-Regular.ttf"); }
     @font-face { font-family: T; font-weight: 700; src: url("file://${FONTS}/FiraCodeNerdFont-Bold.ttf"); }
-    html, body { margin: 0; width: ${width}px; height: ${height}px; background: #1d1b26; overflow: hidden; }
-    .ln { position: absolute; left: ${left}px; height: ${LINE_H}px; line-height: ${LINE_H}px; white-space: pre; font: 15px T, monospace; color: #e4e1f0; }
+    html, body { margin: 0; width: ${width}px; height: ${height}px; background: ${colors.bg}; overflow: hidden; }
+    .ln { position: absolute; left: ${left}px; height: ${LINE_H}px; line-height: ${LINE_H}px; white-space: pre; font: 15px T, monospace; color: ${colors.fg}; }
     .ln i { font-style: normal; display: inline-block; width: ${CELL_W}px; text-align: left; overflow: visible; }
     .ln i.bar { height: ${LINE_H}px; vertical-align: top; background: linear-gradient(currentColor, currentColor) center / 100% 4px no-repeat; }
     .br { position: absolute; width: 8px; border: 2px solid; border-left: 0; border-radius: 0 6px 6px 0; }
     .nt { position: absolute; display: flex; flex-direction: column; gap: 2px; font: 13px -apple-system, "Helvetica Neue", sans-serif; color: #b8b4c8; white-space: nowrap; }
     .nt b { font-size: 14px; font-weight: 600; }
-    .cb { position: absolute; height: 8px; border: 1.5px solid ${BORDER}; border-bottom: 0; border-radius: 5px 5px 0 0; }
+    .cb { position: absolute; height: 8px; border: 1.5px solid ${look.border}; border-bottom: 0; border-radius: 5px 5px 0 0; }
     .cl { position: absolute; text-align: center; font: 12px -apple-system, "Helvetica Neue", sans-serif; color: #b8b4c8; white-space: nowrap; }
   </style><body>${body}${notes}</body>`
   return { html, width, height }
 }
+
+// ---- the /cli-dashboard-setup pane: question, choices and the live preview, laid out as register.tsx draws it ----
+
+const fit = (l: Look, W: number) => {
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, l).map(sec => rowWidth(sec.rows[0] ?? [])))
+  return fixedRows(data, planDrops(need, W), l)
+}
+
+// W is the pane's full width; the draft choice is drawn focused, inverted as a terminal does
+const wizard = (step: number, picks: Picks, f: number, W: number): Line[] => {
+  const l = lookOf(picks)
+  const sections: Section[] = [...fit(l, W - 4), ...agentSections(agents, {}, NOW, f, 0, l), taskSection(tasks, false, NOW, f, l)!]
+  const k = STEPS[step]!
+  return setupRows({ step, picks }, W, draw(sections, W - 4, f, l)).map(r => ({
+    segs: r.choice === picks[k] ? r.segs.map((g, i, all): LSeg => (i === 0 || i === all.length - 1 ? g : { ...g, inverse: true })) : r.segs,
+  }))
+}
+
+// Each theme's two fixed rows under its name and hint
+const themeRows = (names: readonly Picks['theme'][]) => (W: number): Line[] =>
+  names.flatMap((theme, i) => {
+    const l = lookOf(picksFrom({ theme }))
+    return [
+      ...(i > 0 ? [{ segs: [{ text: '' }] }] : []),
+      { segs: [{ text: theme, bold: true }, { text: `  ${QUESTIONS.theme.hints[theme]}`, dim: true }] },
+      ...draw(fit(l, W), W, 4, l),
+    ]
+  })
 
 const shots: Shot[] = [
   { name: 'full', columns: 132, agents: true, tasks: true, skills: true, notes: true },
   { name: 'partial', columns: 112, agents: false, tasks: true, skills: false, notes: false },
   { name: 'shrunken', columns: 76, agents: false, tasks: false, skills: false, notes: false },
   { name: 'meter', columns: 100, agents: false, tasks: false, skills: false, notes: false, lines: meterStates },
+  { name: 'themes', columns: 112, agents: false, tasks: false, skills: false, notes: false, lines: themeRows(['pastel', 'rainbow', 'mono', 'high-contrast']) },
+  { name: 'theme-light', columns: 112, agents: false, tasks: false, skills: false, notes: false, lines: themeRows(['light']), colors: { bg: '#f6f4fa', fg: '#2a2733' } },
 ]
 
 const shoot = (html: string, width: number, height: number, png: string, scale: number) =>
@@ -204,22 +233,22 @@ const hero = (k: number) => {
     sessionTokens: 55_400_000 + k * 180_000,
     cacheLeftMs: 55 * MIN + 45_000 - k * TICK,
   }
-  const sections: Section[] = [...fixedRows(d, new Set()), ...agentSections(rows, {}, now, k, 0), taskSection(list, false, now, k)!]
-  return { lines: draw(sections, W, k, { text: ` ${ICON.skills}  2 skills ▸ `, press: 'skills' }), W }
+  const sections: Section[] = [...fixedRows(d, new Set(), look), ...agentSections(rows, {}, now, k, 0, look), taskSection(list, false, now, k, look)!]
+  return { lines: draw(sections, W, k, look, { text: ` ${look.icon.skills}  2 skills ▸ `, press: 'skills' }), W }
 }
 
 // The Dumb Meter climbing from Smart to Dumb, then holding at the top.
 const meter = (k: number) => {
   const p = Math.min(0.97, 0.05 + (k / 56) * 0.92)
   const d: FixedData = { ...data, usage: { ...data.usage!, contextTokens: Math.round(p * 800_000) } }
-  return { lines: draw([fixedRows(d, new Set())[1]!], 96, k), W: 96 }
+  return { lines: draw([fixedRows(d, new Set(), look)[1]!], 96, k, look), W: 96 }
 }
 
 // The 5h limit at an even pace of 50% (2.5h left): usage climbs from under pace, pauses in peach, then turns rose.
 const burn = (k: number) => {
   const percent = k < 20 ? 38 + k * 0.7 : k < 34 ? 52 : Math.min(64, 52 + (k - 34) * 1.2)
   const d: FixedData = { ...data, usage: { ...data.usage!, fiveHour: { percent, resetsAt: NOW + 150 * MIN } } }
-  return { lines: draw([fixedRows(d, new Set())[0]!], 128, k), W: 128 }
+  return { lines: draw([fixedRows(d, new Set(), look)[0]!], 128, k, look), W: 128 }
 }
 
 // The terminal narrowing from 132 to 72 columns and widening back: cells drop out and return in order.
@@ -228,9 +257,26 @@ const resize = (k: number) => {
   const steps = 20
   const at = k < hold ? 0 : k < hold + steps ? k - hold : k < 2 * hold + steps ? steps : Math.max(0, 2 * steps + 2 * hold - k)
   const W = 128 - at * 3
-  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(sec => rowWidth(sec.rows[0] ?? [])))
-  const sections: Section[] = [...fixedRows(data, planDrops(need, W)), taskSection(tasks, false, NOW, k)!]
-  return { lines: draw(sections, W, k, { text: ` ${ICON.skills}  2 skills ▸ `, press: 'skills' }), W }
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, look).map(sec => rowWidth(sec.rows[0] ?? [])))
+  const sections: Section[] = [...fixedRows(data, planDrops(need, W), look), taskSection(tasks, false, NOW, k, look)!]
+  return { lines: draw(sections, W, k, look, { text: ` ${look.icon.skills}  2 skills ▸ `, press: 'skills' }), W }
+}
+
+// Walking the setup wizard: the preview follows each highlighted choice, enter moves on.
+const WALK: [number, string, number][] = [
+  [0, 'pastel', 10], [0, 'rainbow', 10], [0, 'mono', 10], [0, 'light', 10], [0, 'high-contrast', 10], [0, 'rainbow', 14],
+  [1, 'nerd', 10], [1, 'plain', 12], [1, 'nerd', 12],
+  [2, 'full', 10], [2, 'calm', 12], [2, 'full', 12],
+  [3, '1x', 12], [3, '0.5x', 14], [3, '2x', 18],
+]
+const walkStates = WALK.reduce<{ step: number; picks: Picks; hold: number }[]>((acc, [step, value, hold]) => {
+  const prev = acc.at(-1)?.picks ?? picksFrom({})
+  return [...acc, { step, picks: { ...prev, [STEPS[step]!]: value } as Picks, hold }]
+}, [])
+const walkFrames = walkStates.flatMap(st => Array.from({ length: st.hold }, () => st))
+const setup = (k: number) => {
+  const st = walkFrames[k]!
+  return { lines: wizard(st.step, st.picks, k, 96), W: 96 }
 }
 
 const clips: Clip[] = [
@@ -238,6 +284,7 @@ const clips: Clip[] = [
   { name: 'meter', columns: 100, frames: 68, frame: meter },
   { name: 'burn', columns: 132, frames: 56, frame: burn },
   { name: 'resize', columns: 132, frames: 52, frame: resize },
+  { name: 'setup', columns: 100, frames: walkFrames.length, frame: setup },
 ]
 
 const inBatches = async <T,>(items: readonly T[], size: number, run: (t: T) => Promise<void>) => {

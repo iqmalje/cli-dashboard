@@ -29,6 +29,16 @@ export type Usage = {
   readonly sevenDay?: Limit
 }
 
+// the setup wizard's draft and the saved picks (see hooks/look.ts CHOICES; the contract stays self-contained)
+export type Picks = {
+  readonly theme: 'pastel' | 'rainbow' | 'mono' | 'light' | 'high-contrast'
+  readonly icons: 'nerd' | 'plain'
+  readonly animation: 'full' | 'calm' | 'off'
+  readonly speed: '1x' | '0.5x' | '2x'
+}
+
+export type Setup = { readonly step: number; readonly picks: Picks }
+
 export type Git = { readonly branch: string; readonly dirty: number }
 
 declare module 'claude-code' {
@@ -55,6 +65,9 @@ declare module 'claude-code' {
       skills: readonly string[]
       plugins: readonly string[]
       showSkills: boolean
+      setup: Setup | null
+      chosen: Picks | null
+      setupSeen: boolean
     }
   }
 }

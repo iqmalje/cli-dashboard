@@ -6,8 +6,13 @@ import { agentTokens, onPrompt, scrollBy, setEffort, setTokens, spawn, stop } fr
 import { agentDirOf, cacheLeft, effortFromSettings, parseGit } from './format'
 import { draw, planDrops, rowWidth } from './frame'
 import { softLimit } from './meter'
-import type { Drop, Line } from './frame'
-import { agentSections, fixedRows, ICON, sessionNameFrom, skillsSection, taskSection } from './rows'
+import type { Drop, Line, Seg } from './frame'
+import { lookOf, picksFrom } from './look'
+import type { Look, Picks } from './look'
+import { agentSections, fixedRows, sessionNameFrom, skillsSection, taskSection } from './rows'
+import { sampleAgents, sampleTasks } from './sample'
+import { STEPS, advance, configureArgv, optKey, optValue, pick, setupRows } from './setup'
+import type { Setup } from './setup'
 import type { FixedData } from './rows'
 import { applyToolCall } from './tasks'
 import type { TaskCall } from './tasks'
@@ -33,6 +38,9 @@ const runs = atom({ plugin: 'cli-dashboard', key: 'runs' } as const, {} as Reado
 const skills = atom({ plugin: 'cli-dashboard', key: 'skills' } as const, [] as readonly string[])
 const plugins = atom({ plugin: 'cli-dashboard', key: 'plugins' } as const, [] as readonly string[])
 const showSkills = atom({ plugin: 'cli-dashboard', key: 'showSkills' } as const, false)
+const setup = atom({ plugin: 'cli-dashboard', key: 'setup' } as const, null as Setup | null)
+const chosen = atom({ plugin: 'cli-dashboard', key: 'chosen' } as const, null as Picks | null)
+const setupSeen = atom({ plugin: 'cli-dashboard', key: 'setupSeen' } as const, false)
 
 const HINT_MARGIN = 4
 
@@ -147,14 +155,128 @@ async function refreshSession($: EngineInterface) {
   await refreshSessionName($)
 }
 
+const lineText = (Text: any, l: Line) => (
+  <Text wrap="truncate-end">
+    {l.segs.map(s => (
+      <Text color={s.color} dimColor={s.dim} bold={s.bold}>
+        {s.text}
+      </Text>
+    ))}
+  </Text>
+)
+
+// the fixed rows, with the cells dropped that do not fit W
+const fixedFit = (data: FixedData, W: number, look: Look) => {
+  const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops, look).map(sec => rowWidth(sec.rows[0] ?? [])))
+  return fixedRows(data, planDrops(need, W), look)
+}
+
+// picks saved this session win over the options; a reload (session.start) drops them so a later configure shows
+const picksNow = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => (await read($, chosen)) ?? picksFrom(options)
+
+let tick: Timer | undefined
+
+// the frame tick runs while the wizard previews or the look spins
+const syncTick = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
+  if ((await read($, setup)) || lookOf(await picksNow($, options)).spin) tick ??= $.clock.every(120, () => update($, frame, n => n + 1))
+  else {
+    tick?.cancel()
+    tick = undefined
+  }
+}
+
+// the first run is over once the wizard closes, saved or not
+const markSeen = async ($: EngineInterface) => {
+  await update($, setupSeen, () => true)
+  try {
+    await $.store.set('setupSeen', true)
+  } catch {
+    // the hint shows again next session
+  }
+}
+
+const save = async ($: EngineInterface, picks: Picks) => {
+  try {
+    const enabled = ((await $.settings.read()).enabledPlugins ?? {}) as Record<string, unknown>
+    const r = await $.process.run(configureArgv(enabled, $.plugin.root), { stdin: JSON.stringify(picks) })
+    if (r.exitCode === 0) return $.ui.toast(`cli-dashboard: saved ${picks.theme} · ${picks.icons} icons · ${picks.animation} · ${picks.speed}`)
+  } catch {
+    // fall through to the toast
+  }
+  $.ui.toast('cli-dashboard: could not save the picks; they apply to this session only')
+}
+
+// the pane closing by any route with the wizard still up (Esc, the close mark): nothing is saved
+const closeWizard = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
+  if (!(await read($, setup))) return
+  await update($, setup, () => null)
+  await markSeen($)
+  await syncTick($, options)
+}
+
+// a plugin's own $.ui.close skips its own ui.close hook, so the cancel Button runs the same cleanup itself
+const cancel = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
+  await closeWizard($, options)
+  await $.ui.close({ id: 'setup' }).catch(() => {})
+}
+
+// enter on a choice: pick it, then ask the next question (ring on its current value) or save after the last
+const choose = async ($: EngineInterface, options: Readonly<Record<string, unknown>>, value: string) => {
+  const s = await read($, setup)
+  if (!s) return
+  const picked = pick(s, value)
+  const nxt = advance(picked)
+  await update($, setup, () => nxt ?? picked)
+  if (!nxt) return finish($, options)
+  // the focused Button is gone with the old step: put the ring on the new step's value
+  await $.ui.focus({ requestId: 'setup', key: optKey(nxt.step, nxt.picks[STEPS[nxt.step] ?? 'theme']) }).catch(() => {})
+}
+
+const finish = async ($: EngineInterface, options: Readonly<Record<string, unknown>>) => {
+  const s = await read($, setup)
+  if (!s) return
+  await update($, chosen, () => s.picks)
+  await update($, setup, () => null)
+  await markSeen($)
+  await syncTick($, options)
+  await $.ui.close({ id: 'setup' }).catch(() => {})
+  await save($, s.picks)
+}
+
+
+const fixedData = async ($: EngineInterface, now: number, userLimit: number): Promise<FixedData> => {
+  const m = await read($, model)
+  const u = await read($, usage)
+  return {
+    now,
+    cwd: await read($, cwd),
+    home: await read($, home),
+    sessionName: await read($, sessionName),
+    git: await read($, git),
+    model: m,
+    effort: await read($, effort),
+    usage: u,
+    sessionTokens: await read($, sessionTokens),
+    cacheLeftMs: cacheLeft(await read($, lastResponseAt), now),
+    softLimit: softLimit(u?.window ?? 0, m, userLimit),
+  }
+}
+
 export const register: Register = (on, options) => {
   // the userConfig softLimit (claude plugin configure); unset means the per-model default
   const userLimit = Number(options.softLimit ?? 0)
-  let tick: Timer | undefined
+
   let poll: Timer | undefined
 
   on('session.start', async ($, e, next) => {
-    tick ??= $.clock.every(120, () => update($, frame, n => n + 1))
+    await update($, chosen, () => null)
+    try {
+      const seen = await $.store.get('setupSeen')
+      await update($, setupSeen, () => seen === true)
+    } catch {
+      // unreadable store: the hint shows
+    }
+    await syncTick($, options)
     // an in-process /resume raises no session.start and no turn until the next prompt: the poll spots the new id
     poll ??= $.clock.every(2000, async () => {
       if (await syncSession($).catch(() => false)) await refreshSession($).catch(() => {})
@@ -167,6 +289,7 @@ export const register: Register = (on, options) => {
     }
     await syncSession($).catch(() => {})
     await $.command.register({ name: 'cli-dashboard-skills', description: 'Toggle the skills/plugins row in the cli-dashboard panel' }).catch(() => {})
+    await $.command.register({ name: 'cli-dashboard-setup', description: 'Pick the cli-dashboard theme, icons and animation' }).catch(() => {})
     return next(e)
   })
 
@@ -183,6 +306,26 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'cli-dashboard-skills' }, async $ => {
     await update($, showSkills, v => !v)
     return { text: 'Toggled the cli-dashboard skills/plugins row.' }
+  })
+
+  on('command.run', { command: 'cli-dashboard-setup' }, async $ => {
+    const picks = await picksNow($, options)
+    await update($, setup, () => ({ step: 0, picks }))
+    await syncTick($, options)
+    try {
+      await $.ui.open({ id: 'setup', title: 'cli-dashboard setup', focus: true, closeOnEscape: true, rows: 14 })
+    } catch {
+      await closeWizard($, options)
+      return { text: 'Could not open the cli-dashboard setup.' }
+    }
+    return { text: 'Opened the cli-dashboard setup.' }
+  })
+
+  // the pane closing by any route with the wizard still up (Esc, the close mark): nothing is saved
+  on('ui.close', { id: 'setup' }, async ($, e, next) => {
+    const r = await next(e)
+    await closeWizard($, options)
+    return r
   })
 
   on('session.measure', async ($, e, next) => {
@@ -289,49 +432,29 @@ export const register: Register = (on, options) => {
     // ponytail: the hint line is 4 columns narrower than the terminal (measured live); a Client region reports its real width if this drifts
     const W = (e.viewport?.columns ?? 80) - HINT_MARGIN
 
-    const m = await read($, model)
-    const u = await read($, usage)
-    const data: FixedData = {
-      now,
-      cwd: await read($, cwd),
-      home: await read($, home),
-      sessionName: await read($, sessionName),
-      git: await read($, git),
-      model: m,
-      effort: await read($, effort),
-      usage: u,
-      sessionTokens: await read($, sessionTokens),
-      cacheLeftMs: cacheLeft(await read($, lastResponseAt), now),
-      softLimit: softLimit(u?.window ?? 0, m, userLimit),
-    }
-    const need = (drops: ReadonlySet<Drop>) => Math.max(...fixedRows(data, drops).map(s => rowWidth(s.rows[0] ?? [])))
-    const drops = planDrops(need, W)
+    const look = lookOf(await picksNow($, options))
+    const data = await fixedData($, now, userLimit)
+    const fixed = fixedFit(data, W, look)
 
     const list = await read($, tasks)
-    const tasksSec = taskSection(list, await read($, tasksOpen), now, f)
+    const tasksSec = taskSection(list, await read($, tasksOpen), now, f, look)
     const skillList = await read($, skills)
     const sections = [
-      ...fixedRows(data, drops),
-      ...agentSections(await read($, agents), await read($, runs), now, f, await read($, agentScroll)),
+      ...fixed,
+      ...agentSections(await read($, agents), await read($, runs), now, f, await read($, agentScroll), look),
       ...(tasksSec ? [tasksSec] : []),
-      ...((await read($, showSkills)) ? [skillsSection(skillList, await read($, plugins))] : []),
+      ...((await read($, showSkills)) ? [skillsSection(skillList, await read($, plugins), look)] : []),
     ]
-    const caption = { text: ` ${ICON.skills}  ${skillList.length} skills ${(await read($, showSkills)) ? '▾' : '▸'} `, press: 'skills' }
+    // the hint rides the skills press region: the caption API has one
+    const hint = (await read($, setupSeen)) ? '' : ' ◆ /cli-dashboard-setup '
+    const caption = { text: ` ${look.icon.skills}  ${skillList.length} skills ${(await read($, showSkills)) ? '▾' : '▸'} ${hint}`, press: 'skills' }
     const press: Record<string, () => void> = {
       tasks: () => void update($, tasksOpen, v => !v),
       skills: () => void update($, showSkills, v => !v),
     }
 
     const toRow = (l: Line, i: number) => {
-      const row = (
-        <Text wrap="truncate-end">
-          {l.segs.map(s => (
-            <Text color={s.color} dimColor={s.dim} bold={s.bold}>
-              {s.text}
-            </Text>
-          ))}
-        </Text>
-      )
+      const row = lineText(Text, l)
       const onPress = l.press ? press[l.press] : undefined
       return onPress ? (
         <Button key={`${l.press}-${i}`} plain onPress={onPress}>
@@ -344,7 +467,7 @@ export const register: Register = (on, options) => {
 
     // the agents rows (and the rules between their sections) go in one Client, so a click focuses them for ↑/↓
     // (props are plain JSON: the round trip drops the segments' undefined fields)
-    const lines = draw(sections, W, f, caption)
+    const lines = draw(sections, W, f, look, caption)
     const first = lines.findIndex(l => l.press === 'agents')
     const last = lines.findLastIndex(l => l.press === 'agents')
     const panel =
@@ -360,6 +483,66 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column">
         {below}
         {panel}
+      </Box>
+    )
+  })
+
+  // the ring landing on a choice (panes walk it with ↑/↓) makes it the draft, so the preview follows
+  on('ui.focus', { requestId: 'setup' }, async ($, e, next) => {
+    const s = await read($, setup)
+    const value = s ? optValue(s.step, e.element) : undefined
+    if (value !== undefined) await update($, setup, v => (v ? pick(v, value) : v))
+    return next(e)
+  })
+
+  // the wizard: one question, then the live preview drawn with the draft's look
+  on('ui.render', { component: 'Pane', requestId: 'setup' }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const s = await read($, setup)
+    if (!s) return <Text> </Text>
+    const look = lookOf(s.picks)
+    const W = (e.props as { bodyColumns?: number } | undefined)?.bodyColumns ?? (e.viewport?.columns ?? 80) - HINT_MARGIN
+    const inner = W - 4
+    const now = await $.clock.now()
+    const f = await read($, frame)
+    const sections = [
+      ...fixedFit(await fixedData($, now, userLimit), inner, look),
+      ...agentSections(sampleAgents(now), {}, now, f, 0, look),
+      taskSection(sampleTasks(now), false, now, f, look)!,
+    ]
+    const segText = (segs: readonly Seg[]) => segs.map(g => (
+      <Text color={g.color} dimColor={g.dim} bold={g.bold}>
+        {g.text}
+      </Text>
+    ))
+    const rows = setupRows(s, W, draw(sections, inner, f, look))
+    return (
+      <Box flexDirection="column">
+        {rows.map((r, i) => {
+          // the top and bottom borders are one seg; the others are │ content │
+          if (r.segs.length === 1) return <Text>{segText(r.segs)}</Text>
+          const content = r.segs.slice(1, -1)
+          const body =
+            r.choice === undefined ? (
+              <Text>{segText(content)}</Text>
+            ) : (
+              <Button
+                key={r.choice === 'cancel' ? 'cancel' : optKey(s.step, r.choice)}
+                plain
+                autoFocus={s.step === 0 && r.choice === s.picks.theme ? true : undefined}
+                onPress={() => void (r.choice === 'cancel' ? cancel($, options) : choose($, options, r.choice!))}
+              >
+                <Text>{segText(content)}</Text>
+              </Button>
+            )
+          return (
+            <Box flexDirection="row">
+              <Text>{segText(r.segs.slice(0, 1))}</Text>
+              {body}
+              <Text>{segText(r.segs.slice(-1))}</Text>
+            </Box>
+          )
+        })}
       </Box>
     )
   })

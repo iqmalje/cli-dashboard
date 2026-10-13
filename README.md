@@ -22,17 +22,19 @@ Context health, rate limits, subagents, tasks and skills, all in one bordered pa
 - **Rate limits with a burn rate**: your 5-hour and 7-day limits turn **peach**, then **rose**, when you're using them faster than the window allows.
 - **Live subagents**: every agent's model, effort, tokens and running time, with a spinner until it's done.
 - **Tasks at a glance**: progress and the task in progress. Click to see the full list.
+- **Make it yours**: five colour themes, plain icons for any font, and calm or still animation, picked in a guided `/cli-dashboard-setup` with a live preview.
 - **Fits any terminal**: the panel grows with what's going on and shrinks to fit a narrow window.
 - **Two commands to install**: no cloning, no config files.
 
 > [!NOTE]
-> cli-dashboard is in **alpha**. It ships one look, the author's own: one colour palette and one icon set. Settings to change these are planned (see the [Roadmap](#roadmap)). Expect rough edges, and expect the layout to change between releases.
+> cli-dashboard is in **alpha**. Expect rough edges, and expect the layout to change between releases.
 
 ## Contents
 
 - [Quick start](#quick-start)
 - [See it in action](#see-it-in-action)
 - [The Dumb Meter](#the-dumb-meter)
+- [Make it yours](#make-it-yours)
 - [Using it](#using-it)
 - [Roadmap](#roadmap)
 - [Reference](#reference)
@@ -63,7 +65,9 @@ Then start a new session:
 claude
 ```
 
-That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them. Icons look like boxes? You need a Nerd Font (see [Fonts](#fonts)).
+That's it. The panel appears under the prompt. Sessions that were already open don't pick it up, so restart them.
+
+Then run `/cli-dashboard-setup` to pick a look (optional: the default is the recommended `pastel`). Icons look like boxes? Pick `plain` icons there, or install a Nerd Font (see [Fonts](#fonts)).
 
 ## See it in action
 
@@ -109,6 +113,36 @@ The gradient runs from Smart's green to the colour of the current state and flow
 
 "Full" is a **soft limit** picked for your model, not the raw context window. See [How the soft limit is chosen](#how-the-soft-limit-is-chosen), or set your own in [Settings](#settings).
 
+## Make it yours
+
+Run `/cli-dashboard-setup`. A pane opens and asks four questions, one at a time, with a live preview of your panel under each:
+
+<p align="center"><img src="docs/images/setup.gif" alt="The setup wizard: the highlight moves through the themes while the preview below repaints in each, then the icons, animation and colour animation speed questions" width="720"></p>
+
+| Question | Choices |
+| --- | --- |
+| **Theme** | `pastel` soft, recommended · `rainbow` bold and saturated · `mono` one calm colour · `light` for light terminal backgrounds · `high-contrast` brightest on dark backgrounds |
+| **Icons** | `nerd` needs a Nerd Font · `plain` works in any font |
+| **Animation** | `full` colour flow, colour cycling and spinner · `calm` spinner only · `off` nothing moves |
+| **Colour animation speed** | `1x` · `0.5x` slower · `2x` faster. Skipped when animation is `off`. |
+
+↑ / ↓ move through the choices and the preview follows. **Enter** picks and moves on, and **Esc** cancels without saving anything. After the last question your picks are saved, a toast confirms them, and the panel switches at once.
+
+You can change any of them later the same way, or one at a time in `/config` (see [Settings](#settings)).
+
+<details>
+<summary><b>The themes side by side</b></summary>
+
+<p align="center"><img src="docs/images/themes.png" alt="The two fixed rows in the pastel, rainbow, mono and high-contrast themes" width="100%"></p>
+
+`light` is made for light terminal backgrounds:
+
+<p align="center"><img src="docs/images/theme-light.png" alt="The two fixed rows in the light theme on a light background" width="100%"></p>
+
+</details>
+
+`mono` draws everything in one colour, so the burn-rate warning colours and the meter's state colours go with it.
+
 ## Using it
 
 | Action | How |
@@ -116,15 +150,14 @@ The gradient runs from Smart's green to the colour of the current state and flow
 | Expand or collapse the task list | Click the **tasks** row |
 | Scroll the agent rows (5 show at a time) | Click the **agents** rows, then press ↑ / ↓ |
 | Show or hide skills and plugins | Click **skills** in the bottom border, or run `/cli-dashboard-skills` |
+| Pick the theme, icons and animation | Run `/cli-dashboard-setup` (see [Make it yours](#make-it-yours)) |
 
 Finished agents stay on the panel with a ✓ until your next prompt, so you can see how they ended.
 
 ## Roadmap
 
-cli-dashboard is in alpha, and today everything is fixed to one style. Planned:
+Shipped so far: colour themes, plain icons and animation choices (see [Make it yours](#make-it-yours)). Still planned:
 
-- **Colour palettes**: pick a theme, or set your own colours for the border, meter and sections.
-- **Icon packs**: choose between Nerd Font icon sets, or plain text for terminals without a Nerd Font.
 - **Meter states**: rename the five states and move their thresholds.
 - **Sections and cells**: choose which ones show, and in what order.
 
@@ -148,7 +181,7 @@ The agents, tasks and skills sections only appear while they have something to s
 
 The panel needs two kinds of glyphs from your terminal font:
 
-- **Icons**: [Nerd Font](https://www.nerdfonts.com/font-downloads) icons for every cell. Without them each icon is a box or a `◆`.
+- **Icons**: [Nerd Font](https://www.nerdfonts.com/font-downloads) icons for every cell. Without them each icon is a box or a `◆`; or pick `plain` icons with `/cli-dashboard-setup`.
 - **The meter bar**: `U+1FB0B`, from Unicode's *Symbols for Legacy Computing* block. Without it the bar is a row of `�`.
 
 Not every Nerd Font has both, and not every terminal falls back to another font for a missing glyph. Windows Terminal, for one, does not reliably fall back.
@@ -181,17 +214,26 @@ brew install --cask font-fira-code-nerd-font
 
 ### Settings
 
+`/cli-dashboard-setup` sets the last four for you (see [Make it yours](#make-it-yours)). Every setting is also a row in `/config`, where a change applies to the open session at once.
+
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `softLimit` | Context tokens the Dumb Meter treats as full. Capped at the model's context window. | Per model (see [How the soft limit is chosen](#how-the-soft-limit-is-chosen)) |
+| `theme` | Colour palette: `pastel` (recommended), `rainbow`, `mono` (one hue; hides the burn-rate colours), `light` or `high-contrast`. | `pastel` |
+| `icons` | `nerd` needs a Nerd Font; `plain` uses single-width Unicode symbols any terminal draws. | `nerd` |
+| `animation` | `full` flows the gradient, cycles hues and spins; `calm` keeps only the spinner moving; `off` draws a static panel. | `full` |
+| `speed` | **Colour animation speed**: how fast the meter gradient and agent colours shift (the spinner keeps its pace): `1x`, `0.5x` or `2x`. | `1x` |
 
-Set it from a terminal:
+A value outside a setting's choices counts as unset, so its default applies.
+
+Or set them from a terminal:
 
 ```sh
 echo '{"softLimit": "400000"}' | claude plugin configure cli-dashboard@cli-dashboard --values-stdin
+echo '{"theme": "rainbow"}' | claude plugin configure cli-dashboard@cli-dashboard --values-stdin
 ```
 
-Or run `/plugin configure cli-dashboard@cli-dashboard` inside Claude Code. Restart your sessions to apply it. To go back to the per-model default, set it to `0`.
+Restart your sessions to apply a change made this way. To put `softLimit` back to the per-model default, set it to `0`.
 
 ### How the soft limit is chosen
 
@@ -231,7 +273,9 @@ claude plugin marketplace remove cli-dashboard
 | --- | --- |
 | No panel under the prompt | Run `claude plugin list` and check that `cli-dashboard@cli-dashboard` says **enabled**, then start a new session. |
 | No panel, and the plugin is enabled | Check `claude --version` is 2.1.295 or later. Older versions don't run mods. |
-| Boxes or `◆` instead of icons | Your font has no Nerd Font icons. Install one and select it in your terminal (see [Fonts](#fonts)). |
+| Boxes or `◆` instead of icons | Your font has no Nerd Font icons. Install one and select it in your terminal (see [Fonts](#fonts)), or pick `plain` icons with `/cli-dashboard-setup`. |
+| Colours hard to read | On a light terminal background, pick the `light` theme; for more contrast on a dark one, `high-contrast` (run `/cli-dashboard-setup`). |
+| "could not save the picks" toast | The picks apply to this session only. Check that `claude` is on your `PATH` and `claude plugin list` shows the plugin, then run `/cli-dashboard-setup` again. |
 | `�` along the meter bar | Your font has no `U+1FB0B`. Switch to **Cascadia Mono NF** (see [Fonts](#fonts)). |
 | The meter bar doesn't flow | Expected while the meter is **Smart**: the gradient is one colour until **Coasting** (see [The Dumb Meter](#the-dumb-meter)). |
 | No branch cell | The panel only shows a branch inside a git repository, with `git` on your `PATH`. |
@@ -263,12 +307,25 @@ Then add the folder to `CLAUDE_CODE_PLUGIN_DIRS` in the `env` block of `~/.claud
 
 Open sessions reload the mod's code by themselves when its files change.
 
+To try a branch for one session without touching your install, disable the marketplace copy and start Claude Code from the folder:
+
+```sh
+claude plugin disable cli-dashboard@cli-dashboard
+claude --plugin-dir ~/Documents/cli-dashboard
+claude plugin enable cli-dashboard@cli-dashboard   # afterwards
+```
+
+A copy loaded from a folder keeps its settings under `cli-dashboard@inline`, apart from the installed copy's.
+
 The code is plain TypeScript: pure functions over immutable data, with the I/O in one hooks module.
 
 ```
 hooks/
-  register.tsx   event hooks and the panel render (the only module with I/O)
+  register.tsx   event hooks, the panel render and the setup pane (the only module with I/O)
   rows.ts        builds the panel's rows and cells from session data
+  look.ts        themes, icon sets and animation: the settings' choices and what they draw
+  setup.ts       the setup wizard's questions and steps
+  sample.ts      made-up agents and tasks for the setup preview and the screenshots
   frame.ts       lays out cells into a bordered frame that fits the width
   meter.ts       Dumb Meter maths
   agents.ts      agent rows: spawn, stop, tokens, effort, scrolling
@@ -296,14 +353,14 @@ npx -p typescript tsc --noEmit -p .
 
 `tsconfig.json` extends `.claude-plugin/types/tsconfig.json`. Claude Code writes that folder (the engine's API types) the first time it loads the mod, so start one session with the mod installed before you type-check. It is git-ignored.
 
-Regenerate the README images after a visual change (needs [Bun](https://bun.sh), Google Chrome, [gifski](https://gif.ski) (`brew install gifski`) and FiraCode Nerd Font):
+Regenerate the README images after a visual change (needs [Bun](https://bun.sh), Google Chrome or Chromium, [gifski](https://gif.ski) (`brew install gifski`) and FiraCode Nerd Font):
 
 ```sh
 bun tools/screenshots/render.ts
 ONLY=hero,burn bun tools/screenshots/render.ts   # just these
 ```
 
-The script draws the panel with the mod's own code and writes `docs/images/`: the full, partial and shrunken panels and the meter's states as PNGs, and the hero, meter, burn-rate and resize animations as GIFs, one frame per 120 ms panel tick. A full run takes about two minutes. The data in it is made up. The paths default to macOS. Set `CHROME` to the Chrome binary and `FONTS` to the folder holding `FiraCodeNerdFont-Regular.ttf` and `-Bold.ttf` to render elsewhere.
+The script draws the panel with the mod's own code and writes `docs/images/`: the full, partial and shrunken panels, the meter's states, the setup pane and the themes as PNGs, and the hero, meter, burn-rate, resize and setup animations as GIFs, one frame per 120 ms panel tick. A full run takes about two minutes. The data in it is made up. The paths default to macOS. Set `CHROME` to the Chrome or Chromium binary and `FONTS` to the folder holding `FiraCodeNerdFont-Regular.ttf` and `-Bold.ttf` to render elsewhere (Linux and WSL work too).
 
 ### A note on events
 

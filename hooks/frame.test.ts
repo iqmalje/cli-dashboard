@@ -1,11 +1,13 @@
 import { expect, test } from 'claude-code/testing'
 
 import { draw, planDrops, rowWidth } from './frame'
+import { lookOf, picksFrom } from './look'
 import type { Cell, Line, Section } from './frame'
 
 const cell = (text: string): Cell => ({ parts: [{ text }] })
 const lineText = (l: Line) => l.segs.map(s => s.text).join('')
 const W = 60
+const look = lookOf(picksFrom({}))
 
 const sections: Section[] = [
   { rows: [[cell('~/cli-dashboard'), cell('name'), cell('opus 5.5')]], flex: 1 },
@@ -15,11 +17,11 @@ const sections: Section[] = [
 
 // A line one cell too wide or too narrow breaks the frame on screen.
 test('every drawn line is exactly W wide', () => {
-  for (const l of draw(sections, W, 0)) expect([...lineText(l)].length).toBe(W)
+  for (const l of draw(sections, W, 0, look)) expect([...lineText(l)].length).toBe(W)
 })
 
 test('frame corners and joints: top ┬ under a divider, ┼ where both rows divide', () => {
-  const lines = draw(sections, W, 0).map(lineText)
+  const lines = draw(sections, W, 0, look).map(lineText)
   expect(lines[0]?.startsWith('╭')).toBe(true)
   expect(lines[0]?.endsWith('╮')).toBe(true)
   expect(lines[lines.length - 1]?.startsWith('╰')).toBe(true)
@@ -28,17 +30,17 @@ test('frame corners and joints: top ┬ under a divider, ┼ where both rows div
 })
 
 test('a section press key reaches each of its row lines, not its rules', () => {
-  const lines = draw(sections, W, 0)
+  const lines = draw(sections, W, 0, look)
   expect(lines.filter(l => l.press === 'agents').length).toBe(2)
 })
 
 test('a grow part takes the cell slack', () => {
-  const line = lineText(draw(sections, W, 0)[3]!)
+  const line = lineText(draw(sections, W, 0, look)[3]!)
   expect(line).toContain('━'.repeat(10))
 })
 
 test('the bottom caption sits in the border and carries its press key', () => {
-  const lines = draw(sections, W, 0, { text: ' skills ▸ ', press: 'skills' })
+  const lines = draw(sections, W, 0, look, { text: ' skills ▸ ', press: 'skills' })
   const last = lines[lines.length - 1]!
   expect(lineText(last)).toContain(' skills ▸ ')
   expect(last.press).toBe('skills')
